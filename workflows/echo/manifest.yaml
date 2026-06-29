@@ -1,0 +1,26 @@
+id: echo
+version: "1.0.0"
+name: Echo Workflow
+description: >
+  Retorna o input exatamente como recebido.
+  Utilizado para testes de integração e validação de conectividade.
+
+pipeline: echo-pipeline
+model: local-echo
+provider: local
+
+capabilities:
+  - echo
+  - mock
+
+requirements:
+  gpu: false
+  min_memory: "256MB"
+  min_vram: null
+
+estimated_time_seconds: 1
+
+metadata:
+  category: testing
+  tags: [dev, echo, integration-test]
+  stable: true

@@ -1,0 +1,30 @@
+id: sdxl-1.0
+name: Stable Diffusion XL 1.0
+version: "1.0.0"
+status: available
+
+provider_type: image-generation
+
+capabilities:
+  - image-generation
+  - text-to-image
+  - image-to-image
+  - inpainting
+
+requirements:
+  gpu: true
+  min_vram: "8GB"
+  min_memory: "4GB"
+  cuda_version: "11.8"
+
+parameters:
+  default_steps: 30
+  default_guidance: 7.5
+  max_resolution: "1024x1024"
+  supported_schedulers: [euler, dpm++, ddim, pndm]
+
+metadata:
+  license: CreativeML Open RAIL++-M
+  organization: Stability AI
+  huggingface: stabilityai/stable-diffusion-xl-base-1.0
+  tags: [sdxl, image-generation, diffusion]

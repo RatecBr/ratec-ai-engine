@@ -1,0 +1,14 @@
+{
+  "workflow_id": "audio-transcription",
+  "input": {
+    "audio_url": "https://storage.ratec.com.br/audio/sample.mp3",
+    "language": "pt",
+    "task": "transcribe",
+    "word_timestamps": true,
+    "app_id": "audiover",
+    "metadata": {
+      "user_id": "usr_456",
+      "duration_seconds": 120
+    }
+  }
+}

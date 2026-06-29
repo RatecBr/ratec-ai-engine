@@ -1,0 +1,29 @@
+id: gpt-4o
+name: GPT-4o
+version: "2024-08-06"
+status: available
+
+provider_type: text-generation
+
+capabilities:
+  - text-generation
+  - chat
+  - function-calling
+  - vision
+  - json-mode
+
+requirements:
+  gpu: false          # execução via API OpenAI
+  min_memory: "512MB"
+
+parameters:
+  max_tokens: 128000
+  output_tokens: 16384
+  supports_streaming: true
+  supports_vision: true
+
+metadata:
+  license: commercial
+  organization: OpenAI
+  pricing_unit: tokens
+  tags: [gpt, text-generation, chat, openai]

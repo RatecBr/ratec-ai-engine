@@ -1,0 +1,11 @@
+{
+  "workflow_id": "echo",
+  "input": {
+    "message": "Hello, RATEC AI ENGINE!",
+    "app_id": "goodlook",
+    "metadata": {
+      "user_id": "usr_123",
+      "session_id": "sess_abc"
+    }
+  }
+}

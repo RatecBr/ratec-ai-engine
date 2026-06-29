@@ -1,0 +1,24 @@
+id: image-generation
+version: "1.0.0"
+name: Image Generation Workflow
+description: >
+  Gera imagens a partir de prompts de texto.
+  Suporta FLUX.1, SDXL e outros modelos de geração de imagem
+  através do Capability Registry — o workflow não conhece o modelo específico.
+
+pipeline: image-generation-pipeline
+model: null           # resolvido em runtime via Capability Registry
+provider: null        # resolvido em runtime via ExecutionManager
+capability: image-generation
+
+requirements:
+  gpu: true
+  min_vram: "8GB"
+  min_memory: "4GB"
+
+estimated_time_seconds: 15
+
+metadata:
+  category: generation
+  tags: [image, text-to-image, flux, sdxl]
+  stable: false       # pipeline ainda não implementado — aguarda próxima fase

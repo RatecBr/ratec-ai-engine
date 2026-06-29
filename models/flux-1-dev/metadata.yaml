@@ -1,0 +1,30 @@
+id: flux-1-dev
+name: FLUX.1 Dev
+version: "1.0.0"
+status: available
+
+provider_type: image-generation
+
+capabilities:
+  - image-generation
+  - text-to-image
+  - inpainting
+  - outpainting
+
+requirements:
+  gpu: true
+  min_vram: "24GB"
+  min_memory: "8GB"
+  cuda_version: "12.0"
+
+parameters:
+  default_steps: 28
+  default_guidance: 3.5
+  max_resolution: "2048x2048"
+  supported_schedulers: [euler, dpm++]
+
+metadata:
+  license: flux-1-dev-non-commercial
+  organization: Black Forest Labs
+  huggingface: black-forest-labs/FLUX.1-dev
+  tags: [flux, image-generation, diffusion]

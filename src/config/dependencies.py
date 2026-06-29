@@ -18,9 +18,11 @@ from src.application.providers.list_providers import ListProvidersUseCase
 from src.application.workflows.get_workflow import GetWorkflowUseCase
 from src.application.workflows.list_workflows import ListWorkflowsUseCase
 from src.config.settings import get_settings
+from src.domain.entities.capability import Capability
 from src.domain.entities.model import AIModel
 from src.domain.entities.pipeline import Pipeline, PipelineStep
 from src.domain.entities.workflow import Workflow, WorkflowStep
+from src.domain.entities.workflow_manifest import ManifestRequirements, WorkflowManifest
 from src.domain.interfaces.job_repository import IJobRepository
 from src.domain.interfaces.model_registry import IModelRegistry
 from src.domain.interfaces.pipeline_engine import IPipelineEngine
@@ -35,6 +37,7 @@ from src.infrastructure.pipeline_engine.pipeline_engine import PipelineEngine
 from src.infrastructure.providers.local_provider import LocalProvider
 from src.infrastructure.providers.provider_registry import ProviderRegistry
 from src.infrastructure.providers.runpod_provider import RunPodProvider
+from src.infrastructure.registries.capability_registry import CapabilityRegistry
 from src.infrastructure.registries.model_registry import ModelRegistry
 from src.infrastructure.registries.pipeline_registry import PipelineRegistry as InfraPipelineRegistry
 from src.infrastructure.registries.workflow_registry import WorkflowRegistry
@@ -98,26 +101,107 @@ def _build_pipeline_registry() -> InfraPipelineRegistry:
     return registry
 
 
+# ── Capability Registry ───────────────────────────────────────────────────────
+
+@lru_cache(maxsize=1)
+def _build_capability_registry() -> CapabilityRegistry:
+    registry = CapabilityRegistry(_build_model_registry())
+
+    registry.register_capability(Capability(
+        id="echo",
+        name="Echo",
+        description="Retorna o input sem modificação. Usado para testes.",
+        metadata={"tags": ["dev", "testing"]},
+    ))
+    registry.register_capability(Capability(
+        id="mock",
+        name="Mock",
+        description="Simula respostas para desenvolvimento.",
+        metadata={"tags": ["dev"]},
+    ))
+    registry.register_capability(Capability(
+        id="image-generation",
+        name="Image Generation",
+        description="Gera imagens a partir de prompts de texto.",
+        input_schema={
+            "prompt": {"type": "string", "required": True},
+            "negative_prompt": {"type": "string"},
+            "width": {"type": "integer", "default": 1024},
+            "height": {"type": "integer", "default": 1024},
+            "steps": {"type": "integer", "default": 28},
+        },
+        output_schema={
+            "image_url": {"type": "string"},
+            "seed": {"type": "integer"},
+        },
+        metadata={"tags": ["image", "generation", "diffusion"]},
+    ))
+    registry.register_capability(Capability(
+        id="text-generation",
+        name="Text Generation",
+        description="Gera texto a partir de prompts.",
+        input_schema={
+            "prompt": {"type": "string", "required": True},
+            "max_tokens": {"type": "integer", "default": 1024},
+        },
+        output_schema={
+            "text": {"type": "string"},
+            "tokens_used": {"type": "integer"},
+        },
+        metadata={"tags": ["text", "llm", "generation"]},
+    ))
+    registry.register_capability(Capability(
+        id="audio-transcription",
+        name="Audio Transcription",
+        description="Transcreve áudio para texto.",
+        input_schema={
+            "audio_url": {"type": "string", "required": True},
+            "language": {"type": "string", "default": "pt"},
+        },
+        output_schema={
+            "transcript": {"type": "string"},
+            "segments": {"type": "array"},
+        },
+        metadata={"tags": ["audio", "speech-to-text", "transcription"]},
+    ))
+
+    # Preferências: quando um workflow pede "image-generation", usa flux-1-dev por padrão
+    # registry.set_preferred_model("image-generation", "flux-1-dev")
+    # registry.set_preferred_model("text-generation", "gpt-4o")
+    # registry.set_preferred_model("audio-transcription", "whisper-large-v3")
+
+    return registry
+
+
 # ── Workflow Registry ─────────────────────────────────────────────────────────
 
 @lru_cache(maxsize=1)
 def _build_workflow_registry() -> WorkflowRegistry:
     registry = WorkflowRegistry()
-    registry.register(Workflow(
-        id="echo",
-        name="Echo Workflow",
-        description="Retorna o input como output. Útil para testes de integração.",
-        steps=[
-            WorkflowStep(
-                id="echo-workflow-step",
-                pipeline_id="echo-pipeline",
-            )
-        ],
-    ))
-    # Futuros workflows são registrados aqui sem conhecer providers ou modelos:
-    # registry.register(Workflow(id="generate-profile-photo", steps=[
-    #     WorkflowStep(id="step1", pipeline_id="image-generation-pipeline"),
-    # ]))
+
+    registry.register_from_manifest(
+        manifest=WorkflowManifest(
+            id="echo",
+            version="1.0.0",
+            name="Echo Workflow",
+            description="Retorna o input como output. Útil para testes de integração.",
+            pipeline="echo-pipeline",
+            capabilities=["echo", "mock"],
+            model="local-echo",
+            provider="local",
+            estimated_time_seconds=1,
+            metadata={"category": "testing", "tags": ["dev", "echo"], "stable": True},
+        ),
+        workflow=Workflow(
+            id="echo",
+            name="Echo Workflow",
+            description="Retorna o input como output. Útil para testes de integração.",
+            steps=[WorkflowStep(id="echo-workflow-step", pipeline_id="echo-pipeline")],
+        ),
+    )
+    # Futuros workflows são registrados com register_from_manifest():
+    # registry.register_from_manifest(manifest=WorkflowManifest(id="image-generation", ...),
+    #     workflow=Workflow(id="image-generation", ...))
     return registry
 
 

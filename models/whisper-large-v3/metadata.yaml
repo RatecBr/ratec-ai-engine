@@ -1,0 +1,30 @@
+id: whisper-large-v3
+name: Whisper Large v3
+version: "3.0.0"
+status: available
+
+provider_type: audio-transcription
+
+capabilities:
+  - audio-transcription
+  - speech-to-text
+  - translation
+
+requirements:
+  gpu: true
+  min_vram: "10GB"
+  min_memory: "4GB"
+  cuda_version: "11.8"
+
+parameters:
+  supported_languages: 99
+  max_audio_duration_seconds: 3600
+  supports_word_timestamps: true
+  supports_translation_to_english: true
+
+metadata:
+  license: MIT
+  organization: OpenAI
+  huggingface: openai/whisper-large-v3
+  pricing_unit: audio_seconds
+  tags: [whisper, speech-to-text, transcription, audio]

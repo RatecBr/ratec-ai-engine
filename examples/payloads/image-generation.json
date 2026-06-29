@@ -1,0 +1,16 @@
+{
+  "workflow_id": "image-generation",
+  "input": {
+    "prompt": "professional headshot photo, studio lighting, clean background",
+    "negative_prompt": "blurry, bad quality, distorted",
+    "width": 1024,
+    "height": 1024,
+    "steps": 28,
+    "guidance_scale": 3.5,
+    "app_id": "goodlook",
+    "metadata": {
+      "user_id": "usr_123",
+      "purpose": "profile_photo"
+    }
+  }
+}
