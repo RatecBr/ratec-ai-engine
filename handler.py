@@ -4,7 +4,7 @@ Sprint 2: Validação de infraestrutura (sem modelos de IA)
 
 Workflows disponíveis:
   echo        — devolve o input exatamente como recebido
-  health      — retorna informações do ambiente de execução
+  health      — retorna informações do ambiente de execução + GPU
   image-echo  — valida acesso a uma URL de imagem e retorna seus metadados
 
 Input esperado pelo RunPod:
@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import platform
 import socket
+import subprocess
 import time
 from datetime import datetime, timezone
 
@@ -28,6 +29,48 @@ import runpod
 
 VERSION = "1.0.0"
 _BOOT_TIME = datetime.now(timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# Observability — GPU
+# ---------------------------------------------------------------------------
+
+def _get_gpu_info() -> dict:
+    """
+    Coleta informações da GPU via nvidia-smi.
+    Retorna dict com métricas de hardware sem referenciar modelos específicos.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total,memory.used,memory.free",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            parts = [p.strip() for p in result.stdout.strip().split(",")]
+            return {
+                "gpu_model": parts[0] if len(parts) > 0 else None,
+                "vram_total_mb": int(parts[1]) if len(parts) > 1 else None,
+                "vram_used_mb": int(parts[2]) if len(parts) > 2 else None,
+                "vram_free_mb": int(parts[3]) if len(parts) > 3 else None,
+            }
+    except Exception:
+        pass
+    return {
+        "gpu_model": None,
+        "vram_total_mb": None,
+        "vram_used_mb": None,
+        "vram_free_mb": None,
+    }
+
+
+# Capturado uma vez no boot; raramente muda durante o ciclo de vida do worker.
+_GPU_INFO = _get_gpu_info()
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +83,7 @@ async def _echo(job_input: dict) -> dict:
 
 
 async def _health(job_input: dict) -> dict:
-    """Retorna informações do ambiente de execução."""
+    """Retorna informações do ambiente de execução e do hardware disponível."""
     now = datetime.now(timezone.utc)
     return {
         "version": VERSION,
@@ -52,6 +95,7 @@ async def _health(job_input: dict) -> dict:
         "boot_time": _BOOT_TIME.isoformat(),
         "timestamp": now.isoformat(),
         "uptime_seconds": int((now - _BOOT_TIME).total_seconds()),
+        "gpu": _GPU_INFO,
     }
 
 
@@ -98,6 +142,7 @@ async def handler(job: dict) -> dict:
     O SDK detecta `async def` via inspect.iscoroutinefunction() e gerencia
     o event loop internamente. Nunca usar asyncio.run() aqui.
     """
+    t_start = time.monotonic()
     job_input: dict = job.get("input", {})
 
     workflow_id: str | None = job_input.get("workflow_id")
@@ -120,12 +165,22 @@ async def handler(job: dict) -> dict:
             "status": "completed",
             "workflow_id": workflow_id,
             "result": result,
+            "observability": {
+                "execution_time_ms": int((time.monotonic() - t_start) * 1000),
+                "gpu_model": _GPU_INFO["gpu_model"],
+                "vram_total_mb": _GPU_INFO["vram_total_mb"],
+                "vram_used_mb": _GPU_INFO["vram_used_mb"],
+            },
         }
     except Exception as exc:
         return {
             "status": "failed",
             "workflow_id": workflow_id,
             "error": str(exc),
+            "observability": {
+                "execution_time_ms": int((time.monotonic() - t_start) * 1000),
+                "gpu_model": _GPU_INFO["gpu_model"],
+            },
         }
 
 
@@ -136,5 +191,7 @@ async def handler(job: dict) -> dict:
 print(f"[ratec] RATEC AI ENGINE v{VERSION} iniciando...", flush=True)
 print(f"[ratec] Workflows registrados: {list(_WORKFLOWS)}", flush=True)
 print(f"[ratec] Python {platform.python_version()} | Host: {socket.gethostname()}", flush=True)
+print(f"[ratec] GPU: {_GPU_INFO.get('gpu_model', 'não detectada')} | "
+      f"VRAM: {_GPU_INFO.get('vram_total_mb')} MB", flush=True)
 
 runpod.serverless.start({"handler": handler})
