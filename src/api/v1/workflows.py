@@ -20,9 +20,8 @@ def _to_response(workflow: Workflow) -> WorkflowResponse:
         steps=[
             WorkflowStepResponse(
                 id=s.id,
-                provider_type=s.provider_type,
-                action=s.action,
-                parameters=s.parameters,
+                pipeline_id=s.pipeline_id,
+                input_mapping=s.input_mapping,
                 depends_on=s.depends_on,
             )
             for s in workflow.steps

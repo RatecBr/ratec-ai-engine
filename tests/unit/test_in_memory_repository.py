@@ -36,7 +36,6 @@ async def test_list_filter_by_status(repo):
     j2.mark_completed(output={})
     await repo.save(j1)
     await repo.save(j2)
-
     pending = await repo.list(status=JobStatus.PENDING)
     assert len(pending) == 1
     assert pending[0].id == j1.id

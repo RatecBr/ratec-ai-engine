@@ -6,6 +6,7 @@ from typing import Any
 from src.domain.entities.job import Job
 from src.domain.interfaces.job_repository import IJobRepository
 from src.domain.interfaces.workflow_engine import IWorkflowEngine
+from src.domain.interfaces.workflow_registry import IWorkflowRegistry
 
 
 @dataclass
@@ -20,12 +21,18 @@ class SubmitJobOutput:
 
 
 class SubmitJobUseCase:
-    def __init__(self, job_repository: IJobRepository, workflow_engine: IWorkflowEngine) -> None:
+    def __init__(
+        self,
+        job_repository: IJobRepository,
+        workflow_engine: IWorkflowEngine,
+        workflow_registry: IWorkflowRegistry,
+    ) -> None:
         self._repo = job_repository
         self._engine = workflow_engine
+        self._workflow_registry = workflow_registry
 
     async def execute(self, data: SubmitJobInput) -> SubmitJobOutput:
-        workflow = await self._engine.get_workflow(data.workflow_id)
+        workflow = self._workflow_registry.get(data.workflow_id)
         if workflow is None:
             raise ValueError(f"Workflow '{data.workflow_id}' not found")
 

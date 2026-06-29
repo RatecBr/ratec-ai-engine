@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.v1 import health, jobs, providers, workflows
+from src.api.v1 import health, jobs, models, pipelines, providers, workflows
 
 app = FastAPI(
     title="RATEC AI ENGINE",
@@ -23,7 +23,9 @@ app.add_middleware(
 app.include_router(health.router, prefix="/v1")
 app.include_router(jobs.router, prefix="/v1")
 app.include_router(workflows.router, prefix="/v1")
+app.include_router(pipelines.router, prefix="/v1")
 app.include_router(providers.router, prefix="/v1")
+app.include_router(models.router, prefix="/v1")
 
 
 @app.get("/", include_in_schema=False)

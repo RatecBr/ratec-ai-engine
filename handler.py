@@ -1,57 +1,70 @@
 """
 RunPod Serverless entry point.
 
-Receives jobs from RunPod and dispatches them through the WorkflowEngine.
-Each RunPod job must provide:
-  {
-    "workflow_id": "...",
-    "input": { ... }
-  }
+Input esperado:
+  { "workflow_id": "...", "input": { ... } }
 """
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
 import runpod
 
 from src.config.settings import get_settings
+from src.domain.entities.job import Job
+from src.domain.entities.model import AIModel
+from src.domain.entities.pipeline import Pipeline, PipelineStep
 from src.domain.entities.workflow import Workflow, WorkflowStep
-from src.infrastructure.providers.local_provider import LocalProvider
-from src.infrastructure.providers.provider_registry import ProviderRegistry
-from src.infrastructure.providers.runpod_provider import RunPodProvider
+from src.infrastructure.execution.execution_manager import ExecutionManager
+from src.infrastructure.execution.local_backend import LocalBackend
+from src.infrastructure.execution.runpod_backend import RunPodBackend
+from src.infrastructure.pipeline_engine.pipeline_engine import PipelineEngine
+from src.infrastructure.registries.model_registry import ModelRegistry
+from src.infrastructure.registries.pipeline_registry import PipelineRegistry
+from src.infrastructure.registries.workflow_registry import WorkflowRegistry
 from src.infrastructure.workflow_engine.workflow_engine import WorkflowEngine
 
 
-def _build_engine() -> WorkflowEngine:
+def _bootstrap() -> tuple[WorkflowEngine, WorkflowRegistry]:
     settings = get_settings()
-    registry = ProviderRegistry()
-    registry.register(LocalProvider())
 
+    execution_manager = ExecutionManager()
+    execution_manager.register_backend(LocalBackend())
     if settings.runpod_api_key and settings.runpod_endpoint_id:
-        registry.register(RunPodProvider(settings.runpod_api_key, settings.runpod_endpoint_id))
+        execution_manager.register_backend(RunPodBackend(settings.runpod_api_key, settings.runpod_endpoint_id))
 
-    engine = WorkflowEngine(registry)
+    pipeline_engine = PipelineEngine(execution_manager)
 
-    echo_workflow = Workflow(
-        id="echo",
-        name="Echo Workflow",
-        description="Returns the input as-is.",
+    pipeline_registry = PipelineRegistry()
+    pipeline_registry.register(Pipeline(
+        id="echo-pipeline",
+        name="Echo Pipeline",
+        description="Echo pipeline for testing",
         steps=[
-            WorkflowStep(
-                id="echo_step",
-                provider_type="local",
+            PipelineStep(
+                id="echo-step",
+                capability="echo",
                 action="echo",
                 parameters={"data": "$input"},
+                execution_strategy="local",
             )
         ],
-    )
-    engine.register_workflow(echo_workflow)
-    return engine
+    ))
+
+    workflow_registry = WorkflowRegistry()
+    workflow_registry.register(Workflow(
+        id="echo",
+        name="Echo Workflow",
+        description="Returns input as output",
+        steps=[WorkflowStep(id="echo-workflow-step", pipeline_id="echo-pipeline")],
+    ))
+
+    engine = WorkflowEngine(pipeline_engine, pipeline_registry)
+    return engine, workflow_registry
 
 
-_engine = _build_engine()
+_engine, _workflow_registry = _bootstrap()
 
 
 async def _handle_async(job_input: dict[str, Any]) -> dict[str, Any]:
@@ -59,14 +72,11 @@ async def _handle_async(job_input: dict[str, Any]) -> dict[str, Any]:
     if not workflow_id:
         return {"error": "Missing 'workflow_id' in job input"}
 
-    payload = job_input.get("input", {})
-    workflow = await _engine.get_workflow(workflow_id)
+    workflow = _workflow_registry.get(workflow_id)
     if workflow is None:
         return {"error": f"Workflow '{workflow_id}' not found"}
 
-    from src.domain.entities.job import Job
-
-    job = Job(workflow_id=workflow_id, input=payload)
+    job = Job(workflow_id=workflow_id, input=job_input.get("input", {}))
     job = await _engine.execute(job, workflow)
 
     return {

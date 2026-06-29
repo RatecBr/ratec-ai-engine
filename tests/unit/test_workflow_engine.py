@@ -1,61 +1,63 @@
 import pytest
 from src.domain.entities.job import Job, JobStatus
+from src.domain.entities.pipeline import Pipeline, PipelineStep
 from src.domain.entities.workflow import Workflow, WorkflowStep
-from src.infrastructure.providers.local_provider import LocalProvider
-from src.infrastructure.providers.provider_registry import ProviderRegistry
+from src.infrastructure.execution.execution_manager import ExecutionManager
+from src.infrastructure.execution.local_backend import LocalBackend
+from src.infrastructure.pipeline_engine.pipeline_engine import PipelineEngine
+from src.infrastructure.registries.pipeline_registry import PipelineRegistry
 from src.infrastructure.workflow_engine.workflow_engine import WorkflowEngine
 
 
 @pytest.fixture
-def engine():
-    registry = ProviderRegistry()
-    registry.register(LocalProvider())
-    wf_engine = WorkflowEngine(registry)
-    wf_engine.register_workflow(
-        Workflow(
-            id="echo",
-            name="Echo",
-            description="Echo test workflow",
-            steps=[
-                WorkflowStep(
-                    id="step1",
-                    provider_type="local",
-                    action="echo",
-                    parameters={"data": "$input"},
-                )
-            ],
-        )
+def pipeline_registry():
+    registry = PipelineRegistry()
+    registry.register(Pipeline(
+        id="echo-pipeline",
+        name="Echo",
+        description="Echo test",
+        steps=[
+            PipelineStep(
+                id="echo-step",
+                capability="echo",
+                action="echo",
+                parameters={"data": "$input"},
+                execution_strategy="local",
+            )
+        ],
+    ))
+    return registry
+
+
+@pytest.fixture
+def workflow_engine(pipeline_registry):
+    execution_manager = ExecutionManager()
+    execution_manager.register_backend(LocalBackend())
+    pipeline_engine = PipelineEngine(execution_manager)
+    return WorkflowEngine(pipeline_engine, pipeline_registry)
+
+
+async def test_execute_workflow(workflow_engine):
+    workflow = Workflow(
+        id="test-wf",
+        name="Test",
+        description="Test workflow",
+        steps=[WorkflowStep(id="s1", pipeline_id="echo-pipeline")],
     )
-    return wf_engine
-
-
-async def test_get_workflow(engine):
-    wf = await engine.get_workflow("echo")
-    assert wf is not None
-    assert wf.id == "echo"
-
-
-async def test_get_missing_workflow(engine):
-    wf = await engine.get_workflow("not-found")
-    assert wf is None
-
-
-async def test_execute_workflow(engine):
-    wf = await engine.get_workflow("echo")
-    job = Job(workflow_id="echo", input={"hello": "world"})
-    result = await engine.execute(job, wf)
+    job = Job(workflow_id="test-wf", input={"hello": "world"})
+    result = await workflow_engine.execute(job, workflow)
     assert result.status == JobStatus.COMPLETED
     assert result.output is not None
 
 
-async def test_execute_fails_with_unknown_provider(engine):
-    wf = Workflow(
+async def test_execute_fails_with_unknown_pipeline(workflow_engine):
+    workflow = Workflow(
         id="broken",
         name="Broken",
-        description="Uses a provider that does not exist",
-        steps=[WorkflowStep(id="s1", provider_type="nonexistent", action="run", parameters={})],
+        description="Uses pipeline that does not exist",
+        steps=[WorkflowStep(id="s1", pipeline_id="nonexistent-pipeline")],
     )
     job = Job(workflow_id="broken", input={})
-    result = await engine.execute(job, wf)
+    result = await workflow_engine.execute(job, workflow)
     assert result.status == JobStatus.FAILED
     assert result.error is not None
