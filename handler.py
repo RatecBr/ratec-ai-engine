@@ -6,9 +6,12 @@ Input esperado:
 
 Compatível com RunPod Python SDK >= 1.10.0.
 O SDK gerencia o event loop internamente — handler é async nativo (sem asyncio.run).
+runpod.serverless.start() é chamado incondicionalmente (sem __main__ guard)
+para garantir que o worker inicie independente do modo de invocação.
 """
 from __future__ import annotations
 
+import sys
 from typing import Any
 
 import runpod
@@ -64,14 +67,19 @@ def _bootstrap() -> tuple[WorkflowEngine, WorkflowRegistry]:
     return engine, workflow_registry
 
 
-_engine, _workflow_registry = _bootstrap()
+try:
+    _engine, _workflow_registry = _bootstrap()
+    print("[ratec] Bootstrap concluído com sucesso", flush=True)
+except Exception as exc:
+    print(f"[ratec] ERRO no bootstrap: {exc}", file=sys.stderr, flush=True)
+    sys.exit(1)
 
 
 async def handler(job: dict[str, Any]) -> dict[str, Any]:
     """
     Handler assíncrono nativo para RunPod Serverless.
 
-    O SDK detecta `async def` via inspect.isawaitable() e gerencia o
+    O SDK detecta `async def` via inspect.iscoroutinefunction() e gerencia o
     event loop internamente. Nunca usar asyncio.run() aqui.
     """
     job_input: dict[str, Any] = job["input"]
@@ -95,5 +103,4 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-if __name__ == "__main__":
-    runpod.serverless.start({"handler": handler})
+runpod.serverless.start({"handler": handler})
