@@ -30,10 +30,12 @@ from src.domain.interfaces.pipeline_registry import IPipelineRegistry
 from src.domain.interfaces.provider_registry import IProviderRegistry
 from src.domain.interfaces.workflow_engine import IWorkflowEngine
 from src.domain.interfaces.workflow_registry import IWorkflowRegistry
+from src.infrastructure.execution.comfyui_backend import ComfyUIBackend
 from src.infrastructure.execution.execution_manager import ExecutionManager
 from src.infrastructure.execution.local_backend import LocalBackend
 from src.infrastructure.execution.runpod_backend import RunPodBackend
 from src.infrastructure.pipeline_engine.pipeline_engine import PipelineEngine
+from src.infrastructure.providers.comfyui import ComfyUIProvider
 from src.infrastructure.providers.local_provider import LocalProvider
 from src.infrastructure.providers.provider_registry import ProviderRegistry
 from src.infrastructure.providers.runpod_provider import RunPodProvider
@@ -54,6 +56,8 @@ def _build_execution_manager() -> ExecutionManager:
     manager.register_backend(LocalBackend())
     if settings.runpod_api_key and settings.runpod_endpoint_id:
         manager.register_backend(RunPodBackend(settings.runpod_api_key, settings.runpod_endpoint_id))
+    if settings.comfyui_url:
+        manager.register_backend(ComfyUIBackend(settings.comfyui_url))
     return manager
 
 
@@ -214,6 +218,8 @@ def _build_provider_registry() -> ProviderRegistry:
     registry.register(LocalProvider())
     if settings.runpod_api_key and settings.runpod_endpoint_id:
         registry.register(RunPodProvider(settings.runpod_api_key, settings.runpod_endpoint_id))
+    if settings.comfyui_url:
+        registry.register(ComfyUIProvider(settings.comfyui_url))
     return registry
 
 

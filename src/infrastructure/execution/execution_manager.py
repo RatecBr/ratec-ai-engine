@@ -10,7 +10,7 @@ from src.domain.interfaces.execution_manager import IExecutionManager
 class ExecutionManager(IExecutionManager):
     """Roteia execuções para o backend mais adequado baseado na estratégia e disponibilidade."""
 
-    _PRIORITY_ORDER = ("runpod", "modal", "replicate", "aws", "azure", "kubernetes")
+    _PRIORITY_ORDER = ("runpod", "comfyui", "modal", "replicate", "aws", "azure", "kubernetes")
 
     def __init__(self) -> None:
         self._backends: dict[str, IExecutionBackend] = {}
