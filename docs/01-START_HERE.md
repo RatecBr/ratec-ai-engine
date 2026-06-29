@@ -59,3 +59,5 @@ Nenhuma capability vai para o aplicativo sem aprovação no AI Lab.
 | `docs/workflows/creating-workflows.md` | Como criar novos workflows |
 | `playground/README.md` | Como usar o AI Lab Playground |
 | `docs/ratec-ai-engine-docs/CHANGELOG.md` | Histórico completo |
+| `docs/ratec-ai-engine-docs/DIRECTIVES.md` | **Diretrizes permanentes de desenvolvimento** |
+| `CLAUDE.md` | Resumo operacional para o assistente de IA |
