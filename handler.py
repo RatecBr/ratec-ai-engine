@@ -3,24 +3,24 @@ RunPod Serverless entry point.
 
 Input esperado:
   { "workflow_id": "...", "input": { ... } }
+
+Compatível com RunPod Python SDK >= 1.10.0.
+O SDK gerencia o event loop internamente — handler é async nativo (sem asyncio.run).
 """
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import runpod
 
 from src.config.settings import get_settings
 from src.domain.entities.job import Job
-from src.domain.entities.model import AIModel
 from src.domain.entities.pipeline import Pipeline, PipelineStep
 from src.domain.entities.workflow import Workflow, WorkflowStep
 from src.infrastructure.execution.execution_manager import ExecutionManager
 from src.infrastructure.execution.local_backend import LocalBackend
 from src.infrastructure.execution.runpod_backend import RunPodBackend
 from src.infrastructure.pipeline_engine.pipeline_engine import PipelineEngine
-from src.infrastructure.registries.model_registry import ModelRegistry
 from src.infrastructure.registries.pipeline_registry import PipelineRegistry
 from src.infrastructure.registries.workflow_registry import WorkflowRegistry
 from src.infrastructure.workflow_engine.workflow_engine import WorkflowEngine
@@ -67,7 +67,15 @@ def _bootstrap() -> tuple[WorkflowEngine, WorkflowRegistry]:
 _engine, _workflow_registry = _bootstrap()
 
 
-async def _handle_async(job_input: dict[str, Any]) -> dict[str, Any]:
+async def handler(job: dict[str, Any]) -> dict[str, Any]:
+    """
+    Handler assíncrono nativo para RunPod Serverless.
+
+    O SDK detecta `async def` via inspect.isawaitable() e gerencia o
+    event loop internamente. Nunca usar asyncio.run() aqui.
+    """
+    job_input: dict[str, Any] = job["input"]
+
     workflow_id = job_input.get("workflow_id")
     if not workflow_id:
         return {"error": "Missing 'workflow_id' in job input"}
@@ -76,19 +84,15 @@ async def _handle_async(job_input: dict[str, Any]) -> dict[str, Any]:
     if workflow is None:
         return {"error": f"Workflow '{workflow_id}' not found"}
 
-    job = Job(workflow_id=workflow_id, input=job_input.get("input", {}))
-    job = await _engine.execute(job, workflow)
+    ratec_job = Job(workflow_id=workflow_id, input=job_input.get("input", {}))
+    ratec_job = await _engine.execute(ratec_job, workflow)
 
     return {
-        "job_id": job.id,
-        "status": job.status.value,
-        "output": job.output,
-        "error": job.error,
+        "job_id": ratec_job.id,
+        "status": ratec_job.status.value,
+        "output": ratec_job.output,
+        "error": ratec_job.error,
     }
-
-
-def handler(job: dict[str, Any]) -> dict[str, Any]:
-    return asyncio.run(_handle_async(job.get("input", {})))
 
 
 if __name__ == "__main__":
