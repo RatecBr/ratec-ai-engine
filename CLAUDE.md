@@ -1,0 +1,53 @@
+# RATEC AI ENGINE — Diretrizes para o Assistente de IA
+
+Este arquivo é carregado automaticamente em toda sessão. Seguir todas as regras abaixo sem exceção.
+
+---
+
+## Arquitetura (CONGELADA desde Epic 3)
+
+- Não criar novas abstrações, padrões arquiteturais ou reorganizações de diretórios
+- Não alterar responsabilidades do Engine (`src/`) ou do Runtime (`runtime/`)
+- Não modificar a API pública
+- Qualquer mudança estrutural exige ADR aprovada antes de implementação
+
+## Antes de escrever qualquer código
+
+1. **Reutilizar primeiro** — verificar se a funcionalidade já existe em: providers, workflows, capabilities, runtime
+2. **Analisar como Capability** — perguntar: "pode ser reutilizada por outro produto RATEC?"
+3. **Seguir o fluxo obrigatório**: Pesquisa → Modelos → Workflow → AI Playground → Benchmark → Validação → Capability → Publicação → Integração
+
+## Capabilities
+
+- Toda nova funcionalidade nasce como Capability reutilizável, nunca como código específico de produto
+- Capabilities ficam em `runtime/models/catalog/` (manifest) e `workflows/image|audio|video|.../{id}/`
+- Novo workflow = `comfyui.json` + `manifest.yaml` + entrada em `_CAPABILITY_ROUTES` no `runtime/__init__.py`
+- Validar no AI Playground antes de qualquer integração com produto
+
+## Os produtos nunca conhecem a IA
+
+- Apps consomem apenas capabilities via API — nunca modelos, providers, workflows ou Runtime
+- GOODLOOK é o primeiro consumidor, não o foco da plataforma
+- Implementar sempre pensando nos 6 produtos: GOODLOOK, Audiover, Internice, Animapages, Karaokêro, Tradulino
+
+## Infraestrutura
+
+- Tudo via IaC: `scripts/start.sh`, `runtime/bootstrap.py`, variáveis de ambiente
+- Modelos nunca na imagem Docker — sempre via Network Volume em `/runpod-volume/`
+- Node "1" = LoadImage (convenção de todos os workflows ComfyUI)
+
+## AI Lab
+
+- Todo resultado de execução deve ser registrado via `runtime/lab/` (quando no Playground)
+- Cache experimental é opt-in — nunca automático em produção
+
+## Referências rápidas
+
+| O que fazer | Onde |
+|-------------|------|
+| Adicionar capability | `workflows/{cat}/{id}/` + `_CAPABILITY_ROUTES` |
+| Adicionar modelo | `runtime/models/catalog/{id}/manifest.yaml` |
+| Testar workflow | `uvicorn playground.server:app --port 7860` |
+| Ver decisões | `docs/ratec-ai-engine-docs/DECISIONS.md` |
+| Ver diretrizes | `docs/ratec-ai-engine-docs/DIRECTIVES.md` |
+| Ver roadmap | `docs/ratec-ai-engine-docs/ROADMAP.md` |
