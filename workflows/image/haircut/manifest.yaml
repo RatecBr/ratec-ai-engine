@@ -1,0 +1,52 @@
+id: image/haircut
+version: "0.1.0"
+name: Haircut
+provider: comfyui
+status: planned
+
+description: >
+  Aplica um novo estilo de cabelo a uma pessoa na imagem.
+  Implementado com FLUX + IPAdapter + segmentação de cabelo + máscara.
+  NÃO utiliza HairFastGAN.
+
+requirements:
+  gpu: true
+  min_vram: "24GB"
+  custom_nodes:
+    - comfyui-impact-pack
+    - ComfyUI_IPAdapter_plus
+    - ComfyUI-BRIA_AI-RMBG
+  models:
+    - name: FLUX.1-dev
+      path: models/checkpoints
+    - name: ip-adapter_flux_sd3.safetensors
+      path: models/ipadapter
+    - name: RMBG-1.4
+      path: models/BRIA
+  depends_on:
+    - image/background-remove
+    - image/face-segmentation
+
+inputs:
+  - name: image
+    type: base64
+    description: Foto da pessoa
+  - name: reference_image
+    type: base64
+    description: Foto de referência do estilo de cabelo
+  - name: node_overrides
+    type: object
+    required: false
+
+outputs:
+  - name: images
+    type: object[]
+  - name: timing
+    type: object
+
+estimated_time_seconds: 30
+
+metadata:
+  category: image
+  tags: [haircut, fashion, flux, ipadapter]
+  consumers: [GOODLOOK]

@@ -1,0 +1,33 @@
+id: controlnet-flux
+name: ControlNet for FLUX
+version: "1.0"
+vendor: Shakker-Labs / InstantX
+license: Apache-2.0
+category: control
+status: planned
+
+description: >
+  ControlNet adaptado para FLUX.1. Permite controle estrutural da geração
+  (pose, bordas, profundidade) preservando identidade e estrutura da imagem.
+
+origin:
+  url: https://huggingface.co/Shakker-Labs/FLUX.1-dev-ControlNet-Union-Pro
+  sha256: null
+
+installation:
+  path: models/controlnet/FLUX.1-dev-ControlNet-Union-Pro.safetensors
+  volume_path: /runpod-volume/models/controlnet
+
+requirements:
+  gpu: true
+  min_vram: "24GB"
+  depends_on: [flux-1-dev]
+
+capabilities:
+  - haircut
+  - makeup
+  - virtual-try-on
+
+comfyui_nodes:
+  - ControlNetLoader
+  - ControlNetApplyAdvanced

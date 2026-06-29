@@ -1,0 +1,45 @@
+id: realesrgan-x4plus
+name: RealESRGAN x4plus
+version: "0.3.0"
+vendor: xinntao
+license: BSD-3-Clause
+category: upscale
+status: active
+
+description: >
+  Super-resolução 4x por redes neurais convolucionais.
+  Excelente para fotos realistas. Versão anime disponível separadamente.
+
+origin:
+  url: https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth
+  sha256: null
+
+installation:
+  path: models/upscale_models/RealESRGAN_x4plus.pth
+  volume_path: /runpod-volume/models/upscale_models
+
+requirements:
+  gpu: true
+  min_vram: "4GB"
+
+metrics:
+  model_size_mb: 64
+  scale_factor: 4
+  avg_inference_ms: null
+
+capabilities:
+  - image-upscale
+
+compatible_workflows:
+  - image/image-upscale
+
+comfyui_nodes:
+  - UpscaleModelLoader
+  - ImageUpscaleWithModel
+
+variants:
+  - id: realesrgan-x4plus-anime
+    name: RealESRGAN x4plus Anime
+    description: Variante otimizada para ilustrações e anime
+    path: models/upscale_models/RealESRGAN_x4plus_anime_6B.pth
+    url: https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth

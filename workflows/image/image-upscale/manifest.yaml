@@ -1,0 +1,42 @@
+id: image/image-upscale
+version: "1.0.0"
+name: Image Upscale 4x
+provider: comfyui
+pipeline: comfyui-image-pipeline
+status: active
+
+description: >
+  Aumenta a resolução de uma imagem em 4x usando RealESRGAN.
+  Sem geração de IA — apenas melhoria de qualidade por super-resolução.
+
+requirements:
+  gpu: true
+  min_vram: "4GB"
+  models:
+    - name: RealESRGAN_x4plus.pth
+      path: models/upscale_models
+      source: https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth
+
+inputs:
+  - name: image
+    type: base64
+    description: Imagem de entrada
+  - name: node_overrides
+    type: object
+    required: false
+    description: >
+      Sobrescrever parâmetros dos nodes. Ex:
+      {"2": {"model_name": "RealESRGAN_x4plus_anime_6B.pth"}}
+
+outputs:
+  - name: images
+    type: object[]
+    description: Imagem upscalada com image_b64
+  - name: timing
+    type: object
+
+estimated_time_seconds: 10
+
+metadata:
+  category: image
+  tags: [upscale, quality, super-resolution]

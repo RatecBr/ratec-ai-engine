@@ -1,0 +1,41 @@
+id: bria-rmbg-1.4
+name: BRIA RMBG-1.4
+version: "1.4"
+vendor: BRIA AI
+license: commercial
+category: segmentation
+status: active
+
+description: >
+  Modelo de remoção de fundo por segmentação semântica.
+  Alta qualidade em cabelos, transparências e bordas complexas.
+
+origin:
+  url: https://huggingface.co/briaai/RMBG-1.4
+  sha256: null
+
+installation:
+  path: models/BRIA/RMBG-1.4.pth
+  volume_path: /runpod-volume/models/BRIA
+  custom_nodes:
+    - name: ComfyUI-BRIA_AI-RMBG
+      url: https://github.com/BRIA-AI/ComfyUI-BRIA_AI-RMBG
+
+requirements:
+  gpu: true
+  min_vram: "4GB"
+  python_packages: []
+
+metrics:
+  model_size_mb: 176
+  avg_inference_ms: null
+
+capabilities:
+  - background-remove
+
+compatible_workflows:
+  - image/background-remove
+
+comfyui_nodes:
+  - BRIA_RMBG_Loader
+  - BRIA_RMBG

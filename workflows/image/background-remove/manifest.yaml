@@ -1,0 +1,39 @@
+id: image/background-remove
+version: "1.0.0"
+name: Background Remove
+provider: comfyui
+pipeline: comfyui-image-pipeline
+status: active
+
+description: >
+  Remove o fundo de uma imagem usando o modelo BRIA RMBG-1.4.
+  Retorna a imagem com canal alfa (PNG transparente).
+
+requirements:
+  gpu: true
+  min_vram: "8GB"
+  custom_nodes:
+    - ComfyUI-BRIA_AI-RMBG
+  models:
+    - name: RMBG-1.4
+      path: models/BRIA
+      source: https://huggingface.co/briaai/RMBG-1.4
+
+inputs:
+  - name: image
+    type: base64
+    description: Imagem de entrada (qualquer formato)
+
+outputs:
+  - name: images
+    type: object[]
+    description: Lista de imagens resultantes com image_b64 (PNG com alpha)
+  - name: timing
+    type: object
+
+estimated_time_seconds: 5
+
+metadata:
+  category: image
+  tags: [segmentation, background, rembg]
+  reusable_by: [haircut, beard, makeup, virtual-try-on, face-segmentation]

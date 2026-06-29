@@ -1,0 +1,39 @@
+# RATEC AI ENGINE — AI Runtime (ComfyUI)
+# Imagem de produção para execução de workflows no RunPod.
+# Modelos NÃO são incluídos na imagem — carregados via Network Volume.
+
+FROM runpod/pytorch:2.3.0-py3.11-cuda12.1.1-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Dependências de sistema para ComfyUI
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git wget curl libgl1 libglib2.0-0 ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── ComfyUI ───────────────────────────────────────────────────────────────────
+WORKDIR /comfyui
+RUN git clone --depth=1 https://github.com/comfyanonymous/ComfyUI.git .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ── ComfyUI Manager ───────────────────────────────────────────────────────────
+RUN git clone --depth=1 \
+    https://github.com/ltdrdata/ComfyUI-Manager.git \
+    custom_nodes/ComfyUI-Manager \
+    && pip install --no-cache-dir -r custom_nodes/ComfyUI-Manager/requirements.txt
+
+# ── Handler RATEC ─────────────────────────────────────────────────────────────
+COPY requirements-handler.txt /handler/requirements-handler.txt
+RUN pip install --no-cache-dir -r /handler/requirements-handler.txt
+
+COPY handler.py       /handler/handler.py
+COPY workflows/       /handler/workflows/
+
+# ── Startup ───────────────────────────────────────────────────────────────────
+COPY scripts/start.sh /start.sh
+RUN chmod +x /start.sh
+
+WORKDIR /handler
+CMD ["/start.sh"]

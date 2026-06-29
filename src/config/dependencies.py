@@ -30,10 +30,12 @@ from src.domain.interfaces.pipeline_registry import IPipelineRegistry
 from src.domain.interfaces.provider_registry import IProviderRegistry
 from src.domain.interfaces.workflow_engine import IWorkflowEngine
 from src.domain.interfaces.workflow_registry import IWorkflowRegistry
+from src.infrastructure.execution.comfyui_backend import ComfyUIBackend
 from src.infrastructure.execution.execution_manager import ExecutionManager
 from src.infrastructure.execution.local_backend import LocalBackend
 from src.infrastructure.execution.runpod_backend import RunPodBackend
 from src.infrastructure.pipeline_engine.pipeline_engine import PipelineEngine
+from src.infrastructure.providers.comfyui import ComfyUIProvider
 from src.infrastructure.providers.local_provider import LocalProvider
 from src.infrastructure.providers.provider_registry import ProviderRegistry
 from src.infrastructure.providers.runpod_provider import RunPodProvider
@@ -42,7 +44,10 @@ from src.infrastructure.registries.model_registry import ModelRegistry
 from src.infrastructure.registries.pipeline_registry import PipelineRegistry as InfraPipelineRegistry
 from src.infrastructure.registries.workflow_registry import WorkflowRegistry
 from src.infrastructure.repositories.in_memory_job_repository import InMemoryJobRepository
+from src.infrastructure.validators import WorkflowValidator
 from src.infrastructure.workflow_engine.workflow_engine import WorkflowEngine
+
+_WORKFLOWS_ROOT = __import__("pathlib").Path(__file__).parents[2] / "workflows"
 
 
 # ── Execution Manager ─────────────────────────────────────────────────────────
@@ -54,6 +59,8 @@ def _build_execution_manager() -> ExecutionManager:
     manager.register_backend(LocalBackend())
     if settings.runpod_api_key and settings.runpod_endpoint_id:
         manager.register_backend(RunPodBackend(settings.runpod_api_key, settings.runpod_endpoint_id))
+    if settings.comfyui_url:
+        manager.register_backend(ComfyUIBackend(settings.comfyui_url))
     return manager
 
 
@@ -95,9 +102,20 @@ def _build_pipeline_registry() -> InfraPipelineRegistry:
             )
         ],
     ))
-    # Futuros pipelines são registrados aqui:
-    # registry.register(Pipeline(id="image-generation-pipeline", ...))
-    # registry.register(Pipeline(id="video-generation-pipeline", ...))
+    registry.register(Pipeline(
+        id="comfyui-image-identity-pipeline",
+        name="ComfyUI Image Identity Pipeline",
+        description="Carrega uma imagem no ComfyUI e a retorna sem modificação.",
+        steps=[
+            PipelineStep(
+                id="comfyui-identity-step",
+                capability="image/identity",
+                action="identity",
+                parameters={},
+                execution_strategy="comfyui",
+            )
+        ],
+    ))
     return registry
 
 
@@ -164,6 +182,20 @@ def _build_capability_registry() -> CapabilityRegistry:
         },
         metadata={"tags": ["audio", "speech-to-text", "transcription"]},
     ))
+    registry.register_capability(Capability(
+        id="image/identity",
+        name="Image Identity",
+        description="Carrega uma imagem e a retorna sem modificação. Usado para validação de infraestrutura.",
+        input_schema={
+            "image": {"type": "string", "format": "base64", "required": True},
+        },
+        output_schema={
+            "prompt_id": {"type": "string"},
+            "images": {"type": "array"},
+            "image_b64": {"type": "string", "format": "base64"},
+        },
+        metadata={"tags": ["identity", "validation", "infrastructure"]},
+    ))
 
     # Preferências: quando um workflow pede "image-generation", usa flux-1-dev por padrão
     # registry.set_preferred_model("image-generation", "flux-1-dev")
@@ -199,9 +231,34 @@ def _build_workflow_registry() -> WorkflowRegistry:
             steps=[WorkflowStep(id="echo-workflow-step", pipeline_id="echo-pipeline")],
         ),
     )
-    # Futuros workflows são registrados com register_from_manifest():
-    # registry.register_from_manifest(manifest=WorkflowManifest(id="image-generation", ...),
-    #     workflow=Workflow(id="image-generation", ...))
+    _validator = WorkflowValidator(_WORKFLOWS_ROOT)
+
+    identity_manifest = WorkflowManifest(
+        id="image/identity",
+        version="1.0.0",
+        name="Identity",
+        description="Carrega uma imagem no ComfyUI e a retorna sem modificação.",
+        pipeline="comfyui-image-identity-pipeline",
+        capabilities=["identity"],
+        provider="comfyui",
+        requirements=ManifestRequirements(gpu=True),
+        estimated_time_seconds=5,
+        metadata={"category": "validation", "tags": ["identity", "validation", "sprint4"], "stable": True},
+    )
+    result = _validator.validate(identity_manifest)
+    if not result.valid:
+        import warnings
+        warnings.warn(f"Workflow 'image/identity' falhou na validação: {result.errors}")
+
+    registry.register_from_manifest(
+        manifest=identity_manifest,
+        workflow=Workflow(
+            id="image/identity",
+            name="Identity",
+            description="Carrega uma imagem no ComfyUI e a retorna sem modificação.",
+            steps=[WorkflowStep(id="identity-step", pipeline_id="comfyui-image-identity-pipeline")],
+        ),
+    )
     return registry
 
 
@@ -214,6 +271,8 @@ def _build_provider_registry() -> ProviderRegistry:
     registry.register(LocalProvider())
     if settings.runpod_api_key and settings.runpod_endpoint_id:
         registry.register(RunPodProvider(settings.runpod_api_key, settings.runpod_endpoint_id))
+    if settings.comfyui_url:
+        registry.register(ComfyUIProvider(settings.comfyui_url))
     return registry
 
 

@@ -1,0 +1,35 @@
+id: ipadapter-flux
+name: IPAdapter for FLUX
+version: "1.0"
+vendor: XLabs-AI
+license: Apache-2.0
+category: style-transfer
+status: planned
+
+description: >
+  Image Prompt Adapter para FLUX. Transfere estilo e identidade visual
+  de uma imagem de referência para a geração. Usado nos workflows de
+  alteração de aparência: haircut, beard, makeup.
+
+origin:
+  url: https://huggingface.co/XLabs-AI/flux-ip-adapter
+  sha256: null
+
+installation:
+  path: models/ipadapter/ip_adapter.safetensors
+  volume_path: /runpod-volume/models/ipadapter
+
+requirements:
+  gpu: true
+  min_vram: "24GB"
+  depends_on: [flux-1-dev]
+
+capabilities:
+  - haircut
+  - beard
+  - makeup
+  - virtual-try-on
+
+comfyui_nodes:
+  - IPAdapterModelLoader
+  - IPAdapterAdvanced

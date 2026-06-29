@@ -1,0 +1,44 @@
+id: image/identity
+version: "1.0.0"
+name: Identity
+description: >
+  Carrega uma imagem no ComfyUI e a retorna sem qualquer modificação.
+  Utilizado exclusivamente para validação de infraestrutura: upload,
+  execução, parsing, persistência e retorno do Provider.
+
+provider: comfyui
+pipeline: comfyui-image-identity-pipeline
+
+capabilities:
+  - identity
+
+requirements:
+  gpu: true
+  comfyui_nodes:
+    - LoadImage
+    - SaveImage
+
+inputs:
+  image:
+    type: string
+    format: base64
+    required: true
+    description: Imagem de entrada codificada em base64
+
+outputs:
+  prompt_id:
+    type: string
+    description: ID do prompt gerado pelo ComfyUI
+  images:
+    type: array
+    description: Lista de imagens retornadas pelo ComfyUI
+  elapsed_ms:
+    type: integer
+    description: Tempo total de execução em milissegundos
+
+estimated_time_seconds: 5
+
+metadata:
+  category: validation
+  tags: [identity, validation, infrastructure, sprint4]
+  stable: true

@@ -1,0 +1,86 @@
+runtime:
+  name: RATEC AI Runtime
+  version: "2.0.0"
+  description: >
+    Ambiente de execução de IA da plataforma RATEC.
+    Responsável pela execução de todos os Workflows de IA dos produtos RATEC.
+    Executor genérico: qualquer workflow com comfyui.json pode ser executado
+    sem necessidade de alterações no código do Runtime.
+
+providers:
+  - id: comfyui
+    version: latest
+    status: active
+    description: Motor de execução de workflows de imagem
+
+features:
+  - image
+
+storage:
+  persistent: true
+  volume_path: /runpod-volume
+  structure:
+    - models/checkpoints
+    - models/clip
+    - models/clip_vision
+    - models/controlnet
+    - models/ipadapter
+    - models/loras
+    - models/vae
+    - models/upscale_models
+    - models/embeddings
+    - models/BRIA
+    - workflows
+    - output
+    - input
+    - temp
+    - logs
+
+gpu:
+  minimum_vram: 24GB
+  preferred: NVIDIA RTX A5000
+  note: >
+    Configuração de hardware é responsabilidade da infraestrutura,
+    não do código. A aplicação é agnóstica ao modelo de GPU.
+
+capabilities:
+  - id: image-identity
+    status: active
+    description: Workflow de validação de infraestrutura (sem IA)
+  - id: background-remove
+    status: active
+    description: Remove fundo de imagem via BRIA RMBG-1.4
+    requires_model: RMBG-1.4
+  - id: image-upscale
+    status: active
+    description: Aumenta resolução 4x via RealESRGAN
+    requires_model: RealESRGAN_x4plus.pth
+  - id: face-segmentation
+    status: planned
+    description: Segmenta rosto para workflows faciais
+  - id: haircut
+    status: planned
+    description: Troca estilo de cabelo via FLUX + IPAdapter
+  - id: beard
+    status: planned
+    description: Aplica ou remove barba via FLUX + IPAdapter
+  - id: makeup
+    status: planned
+    description: Aplica maquiagem via FLUX + IPAdapter
+  - id: virtual-try-on
+    status: planned
+    description: Veste digitalmente peças de roupa
+
+environment:
+  comfyui_url: "http://127.0.0.1:8188"
+  comfyui_port: 8188
+  comfyui_ready_timeout: 120
+  job_timeout: 300
+
+consumers:
+  - GOODLOOK
+  - Audiover
+  - Internice
+  - Animapages
+  - Karaokêro
+  - Tradulino

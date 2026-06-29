@@ -1,0 +1,36 @@
+id: whisper-large-v3
+name: Whisper Large v3
+version: "3.0"
+vendor: OpenAI
+license: MIT
+category: audio-transcription
+status: planned
+
+description: >
+  Modelo de transcrição de áudio de alta precisão.
+  Suporta 99 idiomas, com excelente desempenho em português.
+  Planejado para os produtos Audiover, Karaokêro e Tradulino.
+
+origin:
+  url: https://huggingface.co/openai/whisper-large-v3
+  sha256: null
+
+installation:
+  path: models/whisper/whisper-large-v3.pt
+  volume_path: /runpod-volume/models/whisper
+
+requirements:
+  gpu: true
+  min_vram: "10GB"
+
+metrics:
+  model_size_mb: 2900
+  languages: 99
+
+capabilities:
+  - audio-transcription
+
+consumers:
+  - Audiover
+  - Karaokêro
+  - Tradulino

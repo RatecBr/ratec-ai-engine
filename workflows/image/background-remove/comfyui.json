@@ -1,0 +1,31 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "_meta": {"title": "Load Image"},
+    "inputs": {
+      "image": "placeholder.png",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "BRIA_RMBG_Loader",
+    "_meta": {"title": "Load BRIA RMBG Model"},
+    "inputs": {}
+  },
+  "3": {
+    "class_type": "BRIA_RMBG",
+    "_meta": {"title": "Remove Background"},
+    "inputs": {
+      "image": ["1", 0],
+      "model": ["2", 0]
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "_meta": {"title": "Save Result"},
+    "inputs": {
+      "images": ["3", 0],
+      "filename_prefix": "ratec_bg_removed"
+    }
+  }
+}
