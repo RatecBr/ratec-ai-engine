@@ -1,0 +1,34 @@
+id: image/makeup
+version: "0.1.0"
+name: Makeup
+provider: comfyui
+status: planned
+
+description: >
+  Aplica maquiagem em uma pessoa na imagem.
+  Reutiliza os mesmos componentes dos workflows haircut e beard.
+
+requirements:
+  gpu: true
+  min_vram: "24GB"
+  depends_on:
+    - image/face-segmentation
+
+inputs:
+  - name: image
+    type: base64
+  - name: reference_image
+    type: base64
+    required: false
+  - name: node_overrides
+    type: object
+    required: false
+
+outputs:
+  - name: images
+    type: object[]
+
+metadata:
+  category: image
+  tags: [makeup, beauty, flux, ipadapter]
+  consumers: [GOODLOOK]

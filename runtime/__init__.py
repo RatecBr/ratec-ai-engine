@@ -32,14 +32,30 @@ from runtime.observability import ExecutionMetrics, get_gpu
 from runtime.upload import upload_image
 from runtime.workflow import WorkflowManager
 
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 _BOOT_TIME = datetime.now(timezone.utc)
+
+# Mapeamento capability → workflow_id (caminho no diretório workflows/)
+# Os aplicativos solicitam a capability; o Runtime resolve qual workflow usar.
+_CAPABILITY_ROUTES: dict[str, str] = {
+    "background-remove": "image/background-remove",
+    "image-upscale": "image/image-upscale",
+    "face-segmentation": "image/face-segmentation",
+    "haircut": "image/haircut",
+    "beard": "image/beard",
+    "makeup": "image/makeup",
+    "virtual-try-on": "image/virtual-try-on",
+    # aliases de backward compatibility
+    "image-identity": "image/identity",
+    "identity": "image/identity",
+}
 
 
 class Runtime:
     """
     Fachada principal do AI Runtime.
-    Recebe um job RunPod, despacha para o workflow correto e retorna o resultado.
+    Recebe um job RunPod, resolve a capability, executa via ComfyUI e retorna o resultado.
+    Novos workflows não requerem alterações aqui — basta adicionar comfyui.json + manifest.yaml.
     """
 
     def __init__(
@@ -75,23 +91,9 @@ class Runtime:
         if not workflow_id:
             return {"status": "failed", "error": "Campo obrigatório ausente: 'workflow_id'"}
 
-        _dispatch = {
-            "echo": self._echo,
-            "health": self._health,
-            "image-echo": self._image_echo,
-            "image-identity": self._image_identity,
-        }
-
-        fn = _dispatch.get(workflow_id)
-        if fn is None:
-            return {
-                "status": "failed",
-                "error": f"Workflow desconhecido: '{workflow_id}'. Disponíveis: {list(_dispatch)}",
-            }
-
         gpu = get_gpu()
         try:
-            result = await fn(job_input.get("input", {}))
+            result = await self._dispatch(workflow_id, job_input.get("input", {}))
             return {
                 "status": "completed",
                 "workflow_id": workflow_id,
@@ -115,7 +117,93 @@ class Runtime:
                 },
             }
 
-    # ── Workflows ─────────────────────────────────────────────────────────────
+    # ── Dispatcher ────────────────────────────────────────────────────────────
+
+    async def _dispatch(self, workflow_id: str, job_input: dict) -> dict:
+        """
+        Roteia o job para o handler correto.
+        Handlers de sistema têm prioridade; qualquer outro ID é resolvido
+        como capability → workflow ComfyUI.
+        """
+        _system_handlers = {
+            "echo": self._echo,
+            "health": self._health,
+            "image-echo": self._image_echo,
+        }
+
+        fn = _system_handlers.get(workflow_id)
+        if fn is not None:
+            return await fn(job_input)
+
+        # Resolve capability → workflow_id
+        resolved = _CAPABILITY_ROUTES.get(workflow_id, workflow_id)
+
+        if not self._wm.exists(resolved):
+            available = list(_CAPABILITY_ROUTES.keys()) + list(_system_handlers.keys())
+            raise ValueError(
+                f"Capability ou workflow desconhecido: '{workflow_id}'. "
+                f"Disponíveis: {sorted(available)}"
+            )
+
+        return await self._execute_comfyui(resolved, job_input)
+
+    # ── Executor genérico ComfyUI ─────────────────────────────────────────────
+
+    async def _execute_comfyui(self, workflow_id: str, job_input: dict) -> dict:
+        """
+        Executor genérico para qualquer workflow ComfyUI.
+        Convenção: node "1" é sempre o LoadImage (input principal).
+        node_overrides adicionais podem ser passados no job_input.
+        """
+        image_b64: str | None = job_input.get("image")
+        node_overrides: dict[str, dict] = dict(job_input.get("node_overrides", {}))
+
+        workflow = self._wm.load_comfyui(workflow_id)
+
+        async with httpx.AsyncClient() as client:
+            upload_ms = 0
+
+            if image_b64:
+                try:
+                    image_data = base64.b64decode(image_b64)
+                except Exception as exc:
+                    raise ValueError(f"'image' não é base64 válido: {exc}") from exc
+
+                filename, upload_ms = await upload_image(client, self._config, image_data)
+                node_overrides.setdefault("1", {})["image"] = filename
+
+            if node_overrides:
+                workflow = self._wm.apply_node_overrides(workflow, node_overrides)
+
+            t_exec = time.monotonic()
+            prompt_id = await self._executor.submit(client, workflow)
+            history = await self._executor.poll(client, prompt_id)
+            exec_ms = int((time.monotonic() - t_exec) * 1000)
+
+            images = self._executor.parse_images(history)
+            if not images:
+                raise RuntimeError(f"Workflow '{workflow_id}' não retornou imagens")
+
+            result_images = []
+            total_download_ms = 0
+            for img in images:
+                img_b64, dl_ms = await download_image(
+                    client, self._config, img["filename"], img["subfolder"]
+                )
+                total_download_ms += dl_ms
+                result_images.append({**img, "image_b64": img_b64})
+
+        return {
+            "prompt_id": prompt_id,
+            "images": result_images,
+            "timing": {
+                "upload_ms": upload_ms,
+                "execution_ms": exec_ms,
+                "download_ms": total_download_ms,
+            },
+        }
+
+    # ── Handlers de sistema ───────────────────────────────────────────────────
 
     async def _echo(self, job_input: dict) -> dict:
         return job_input
@@ -130,6 +218,7 @@ class Runtime:
             "uptime_seconds": int((now - _BOOT_TIME).total_seconds()),
             "worker_ready": True,
             "workflows_available": self._wm.list_available(),
+            "capabilities": sorted(_CAPABILITY_ROUTES.keys()),
         }
 
     async def _image_echo(self, job_input: dict) -> dict:
@@ -150,53 +239,15 @@ class Runtime:
             "status_code": r.status_code, "latency_ms": latency_ms,
         }
 
-    async def _image_identity(self, job_input: dict) -> dict:
-        image_b64 = job_input.get("image")
-        if not image_b64:
-            raise ValueError("Campo obrigatório ausente: 'image' (base64)")
-        try:
-            image_data = base64.b64decode(image_b64)
-        except Exception as exc:
-            raise ValueError(f"'image' não é base64 válido: {exc}") from exc
-
-        async with httpx.AsyncClient() as client:
-            filename, upload_ms = await upload_image(client, self._config, image_data)
-
-            workflow = self._wm.load_comfyui("image/identity")
-            workflow["1"]["inputs"]["image"] = filename
-
-            t_exec = time.monotonic()
-            prompt_id = await self._executor.submit(client, workflow)
-            history = await self._executor.poll(client, prompt_id)
-            exec_ms = int((time.monotonic() - t_exec) * 1000)
-
-            images = self._executor.parse_images(history)
-            if not images:
-                raise RuntimeError("ComfyUI não retornou imagens")
-
-            first = images[0]
-            result_b64, download_ms = await download_image(
-                client, self._config, first["filename"], first["subfolder"]
-            )
-
-        return {
-            "prompt_id": prompt_id,
-            "images": images,
-            "image_b64": result_b64,
-            "timing": {
-                "upload_ms": upload_ms,
-                "execution_ms": exec_ms,
-                "download_ms": download_ms,
-            },
-        }
-
     # ── Startup log ───────────────────────────────────────────────────────────
 
     def _print_startup(self) -> None:
         gpu = get_gpu()
+        available = self._wm.list_available()
         print(f"[ratec] RATEC AI Runtime v{VERSION}", flush=True)
         print(f"[ratec] Python {platform.python_version()} | Host: {socket.gethostname()}", flush=True)
         print(f"[ratec] GPU: {gpu.model or 'não detectada'} | VRAM: {gpu.vram_total_mb} MB", flush=True)
         print(f"[ratec] ComfyUI: {self._config.comfyui_url}", flush=True)
-        print(f"[ratec] Workflows: {self._config.workflows_dir}", flush=True)
+        print(f"[ratec] Workflows: {len(available)} disponíveis → {available}", flush=True)
+        print(f"[ratec] Capabilities: {sorted(_CAPABILITY_ROUTES.keys())}", flush=True)
         print(f"[ratec] Volume: {self._config.volume_path} (disponível: {self._config.volume_available})", flush=True)

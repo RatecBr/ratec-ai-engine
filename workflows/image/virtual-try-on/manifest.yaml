@@ -1,0 +1,35 @@
+id: image/virtual-try-on
+version: "0.1.0"
+name: Virtual Try-On
+provider: comfyui
+status: planned
+
+description: >
+  Veste digitalmente uma peça de roupa em uma pessoa.
+  Utiliza os mesmos Providers de segmentação e FLUX.
+
+requirements:
+  gpu: true
+  min_vram: "24GB"
+  depends_on:
+    - image/background-remove
+
+inputs:
+  - name: image
+    type: base64
+    description: Foto da pessoa
+  - name: garment_image
+    type: base64
+    description: Foto da peça de roupa
+  - name: node_overrides
+    type: object
+    required: false
+
+outputs:
+  - name: images
+    type: object[]
+
+metadata:
+  category: image
+  tags: [virtual-try-on, fashion, flux]
+  consumers: [GOODLOOK, Internice]

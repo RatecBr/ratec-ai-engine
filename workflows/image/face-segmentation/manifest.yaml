@@ -1,0 +1,30 @@
+id: image/face-segmentation
+version: "0.1.0"
+name: Face Segmentation
+provider: comfyui
+status: planned
+
+description: >
+  Segmenta o rosto em uma imagem, gerando uma máscara precisa.
+  Pré-requisito para workflows faciais (haircut, beard, makeup).
+
+requirements:
+  gpu: true
+  min_vram: "8GB"
+  custom_nodes:
+    - comfyui-reactor  # ou equivalente de face detection
+
+inputs:
+  - name: image
+    type: base64
+
+outputs:
+  - name: images
+    type: object[]
+    description: Máscara de segmentação do rosto
+
+metadata:
+  category: image
+  tags: [face, segmentation, mask]
+  reusable_by: [haircut, beard, makeup]
+  blocks: [haircut, beard, makeup]

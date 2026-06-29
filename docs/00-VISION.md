@@ -16,8 +16,10 @@ Construir uma plataforma única, modular e escalável de IA, onde todos os aplic
 - Workflows independentes.
 - Providers substituíveis.
 - API versionada.
-- Execução inicial em RunPod Serverless.
-- Integração futura com ComfyUI, OpenAI, FLUX e outros modelos.
+- Execução em RunPod Serverless (NVIDIA RTX A5000, scale-to-zero).
+- ComfyUI como motor de execução de imagens (integrado e em produção).
+- Modelos de IA nunca embutidos na imagem Docker — carregados via Network Volume.
+- IaC: todo setup do ambiente é código, nunca configuração manual.
 
 ## Arquitetura
 
