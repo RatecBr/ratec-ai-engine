@@ -1,0 +1,50 @@
+id: flux-1-dev
+name: FLUX.1-dev
+version: "1.0"
+vendor: Black Forest Labs
+license: non-commercial
+category: image-generation
+status: planned
+
+description: >
+  Modelo de geração de imagem de alta qualidade da Black Forest Labs.
+  Arquitetura transformer pura, superior ao SDXL em detalhes e prompt following.
+  Usado nos workflows de alteração facial: haircut, beard, makeup, virtual-try-on.
+
+origin:
+  url: https://huggingface.co/black-forest-labs/FLUX.1-dev
+  sha256: null
+
+installation:
+  path: models/checkpoints/flux1-dev.safetensors
+  volume_path: /runpod-volume/models/checkpoints
+
+requirements:
+  gpu: true
+  min_vram: "24GB"
+  recommended_vram: "48GB"
+
+metrics:
+  model_size_mb: 23800
+  avg_inference_ms: null
+
+capabilities:
+  - haircut
+  - beard
+  - makeup
+  - virtual-try-on
+
+compatible_workflows:
+  - image/haircut
+  - image/beard
+  - image/makeup
+  - image/virtual-try-on
+
+comfyui_nodes:
+  - UNETLoader
+  - DualCLIPLoader
+  - CLIPTextEncodeFlux
+  - FluxGuidance
+  - KSamplerSelect
+  - BasicScheduler
+  - SamplerCustomAdvanced
