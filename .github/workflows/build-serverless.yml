@@ -6,8 +6,7 @@ on:
     paths:
       - "handler.py"
       - "Dockerfile.serverless"
-      - "requirements.txt"
-      - "src/**"
+      - "requirements-handler.txt"
   workflow_dispatch:
 
 env:

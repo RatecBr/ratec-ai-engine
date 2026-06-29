@@ -3,13 +3,14 @@ FROM python:3.11-slim
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONUNBUFFERED=1
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Instala apenas as dependências do handler (sem FastAPI, pydantic, uvicorn)
+COPY requirements-handler.txt .
+RUN pip install --no-cache-dir -r requirements-handler.txt
 
-COPY . .
+# Copia apenas o handler — sem src/, sem __pycache__ de outros módulos
+COPY handler.py .
 
 # -u: saída unbuffered — obrigatório para logging em tempo real no RunPod
 CMD ["python3", "-u", "handler.py"]
