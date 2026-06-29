@@ -108,26 +108,48 @@ RunPod Job  { action, input }
 ratec-ai-engine/
 ├── handler.py                    # entry point RunPod (thin)
 ├── runtime/                      # módulo standalone para RunPod
-│   ├── __init__.py               # Runtime facade
+│   ├── __init__.py               # Runtime facade + _CAPABILITY_ROUTES
 │   ├── configuration.py          # RuntimeConfig (env vars)
 │   ├── observability.py          # GPUMetrics, ExecutionMetrics
 │   ├── health.py                 # full_health()
-│   ├── executor.py               # ComfyUIExecutor
-│   ├── server.py                 # ComfyUIServer
-│   ├── workflow.py               # WorkflowManager
+│   ├── executor.py               # ComfyUIExecutor (submit/poll/parse)
+│   ├── server.py                 # ComfyUIServer (start/wait/stop)
+│   ├── workflow.py               # WorkflowManager (load/list/overrides)
 │   ├── upload.py                 # upload base64 → ComfyUI
 │   ├── download.py               # download ComfyUI → base64
 │   ├── bootstrap.py              # IaC: volume dirs + symlinks
-│   └── manifest.yaml             # estado estático do runtime
-├── workflows/                    # workflows por categoria
+│   ├── manifest.yaml             # estado estático do runtime
+│   ├── lab/                      # AI Lab (camada observacional — não altera produção)
+│   │   ├── __init__.py           # Lab facade: record(), cache_get/set()
+│   │   ├── database.py           # SQLite: executions + cache_entries
+│   │   └── cache.py              # compute_key() SHA-256
+│   └── models/
+│       └── catalog/              # manifests YAML dos modelos
+│           ├── bria-rmbg/        # BRIA RMBG-1.4 (background-remove)
+│           ├── realesrgan/       # RealESRGAN x4plus (image-upscale)
+│           ├── flux/             # FLUX.1-dev (haircut, beard, makeup)
+│           ├── controlnet/       # ControlNet FLUX (planejado)
+│           ├── ipadapter/        # IPAdapter FLUX (planejado)
+│           └── whisper/          # Whisper Large v3 (áudio, planejado)
+├── workflows/                    # biblioteca de capabilities por categoria
 │   ├── image/
-│   │   └── identity/
-│   │       ├── comfyui.json
-│   │       └── manifest.yaml
+│   │   ├── identity/             ✅ ativo
+│   │   ├── background-remove/    ✅ ativo (aguarda modelo no volume)
+│   │   ├── image-upscale/        ✅ ativo (aguarda modelo no volume)
+│   │   ├── face-segmentation/    🔜 planejado
+│   │   ├── haircut/              🔜 planejado
+│   │   ├── beard/                🔜 planejado
+│   │   ├── makeup/               🔜 planejado
+│   │   └── virtual-try-on/       🔜 planejado
 │   ├── audio/
 │   ├── video/
 │   ├── vision/
 │   └── multimodal/
+├── playground/                   # AI Lab Playground (ferramenta de desenvolvimento)
+│   ├── server.py                 # FastAPI: 5 abas — Execute/History/Compare/Benchmark/Catalog
+│   ├── catalog.py                # leitor YAML do catálogo de modelos
+│   ├── requirements.txt          # fastapi, uvicorn, pyyaml, aiofiles
+│   └── README.md
 ├── src/                          # Clean Architecture (modo API)
 │   ├── domain/
 │   ├── application/
@@ -169,3 +191,6 @@ ratec-ai-engine/
 - **IaC**: todo setup do ambiente é código, nunca configuração manual
 - **Hardware-agnostic**: código nunca verifica qual GPU está rodando; política é da infraestrutura
 - **Extensibilidade**: novos produtos da RATEC consomem a mesma API sem modificações no motor
+- **Arquitetura congelada** (desde Epic 3): nenhuma mudança estrutural sem ADR aprovada
+- **Lab não-invasivo**: `runtime/lab/` é observacional — não altera nenhum comportamento de produção
+- **Capability-first**: apps solicitam capabilities, nunca workflows, modelos ou providers

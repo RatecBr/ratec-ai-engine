@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## v2.0.0 — Epic 3: AI Lab
+- **Arquitetura congelada** — nenhuma alteração estrutural sem ADR aprovada
+- `runtime/lab/database.py` — SQLite (stdlib): tabelas `executions` e `cache_entries`; índices por capability e data
+- `runtime/lab/cache.py` — `compute_key()`: SHA-256 de `(workflow_id + input_hash + node_overrides)`
+- `runtime/lab/__init__.py` — `Lab` facade: `record()`, `save_input/output_images()`, `cache_get/set()`
+- `runtime/models/catalog/` — 6 manifests YAML: bria-rmbg, realesrgan, flux, controlnet, ipadapter, whisper
+  - Campos: id, versão, vendor, licença, VRAM, capabilities, nodes ComfyUI, URL de origem
+- `playground/catalog.py` — leitor YAML do catálogo via `pyyaml`
+- `playground/server.py` v2.0 — 5 abas:
+  - **Execute**: capability + imagem + overrides + cache experimental → grava em histórico
+  - **History**: tabela filtrável por capability/sucesso, expansão com imagens, avaliação manual ★ (1–5)
+  - **Compare**: side-by-side de dois registros do histórico por ID
+  - **Benchmark**: métricas agregadas por capability e workflow (success rate, avg ms, avg VRAM, avg score)
+  - **Catalog**: modelos (status, VRAM, licença, capabilities), capabilities (active/planned), cache (hits + limpar)
+- `playground/requirements.txt` — adicionado `pyyaml` e `aiofiles`
+- Fluxo obrigatório validado: Workflow → Playground → Benchmark → Aprovar → API → Aplicativo
+
 ## v1.0.0 — Epic 2: Biblioteca de Workflows de IA
 - Mudança estratégica: plataforma oficial de IA de todos os produtos RATEC (não apenas GOODLOOK)
 - Decisão arquitetural: **HairFastGAN não utilizado** — replaced por FLUX + IPAdapter + segmentação

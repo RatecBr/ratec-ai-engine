@@ -9,11 +9,10 @@ Plataforma centralizada de IA da RATEC. Todos os produtos (GOODLOOK, Audiover, I
 - **API única** para todos os produtos RATEC
 - **Clean Architecture** — isolamento entre domínio e infraestrutura
 - **Workflow Engine** — orquestração de processos de negócio
-- **Pipeline Engine** — orquestração técnica de capabilities
-- **Execution Manager** — roteamento entre backends de compute (RunPod, Modal, etc.)
-- **Provider Registry** — catálogo de providers de IA
-- **Model Registry** — catálogo de modelos
-- **Capability Registry** — mapeamento capability → modelo
+- **Execution Manager** — roteamento entre backends de compute
+- **Capability Routing** — apps solicitam capabilities, o Engine decide o workflow
+- **Model Catalog** — catálogo oficial de modelos com manifests
+- **AI Lab** — laboratório de pesquisa, benchmark e validação
 - **RunPod Serverless** — compute GPU pay-per-use com scale-to-zero
 
 ## Consumidores
@@ -27,52 +26,51 @@ Plataforma centralizada de IA da RATEC. Todos os produtos (GOODLOOK, Audiover, I
 | Karaokêro | Áudio / Karaokê | Backlog |
 | Tradulino | Tradução | Backlog |
 
-## Estado atual (Sprint 5 concluída)
+## Estado atual (Epic 3 concluído)
 
-### Fundação (Sprint 1)
-- Arquitetura Clean Architecture operacional
-- API Contract v1.0.0 publicado
-- RunPod Serverless configurado com GHCR
+### Epic 1 — Fundação (Sprints 1–5)
+- Clean Architecture operacional
+- ComfyUI Provider + Backend integrado ao ExecutionManager
+- AI Runtime standalone (`runtime/`) com executor genérico
+- `Dockerfile.runtime` + CI/CD + IaC via `scripts/start.sh`
 
-### Infraestrutura GPU (Sprint 2)
-- Endpoint restrito a NVIDIA RTX A5000 (24GB VRAM)
-- GPU observability em todas as respostas
+### Epic 2 — Biblioteca de Workflows
+- Capability routing: `background-remove`, `image-upscale`, `haircut`, `beard`, `makeup`, `virtual-try-on`, `face-segmentation`
+- Workflows ativos: `image/identity`, `image/background-remove`, `image/image-upscale`
+- AI Playground v1: interface de testes local
 
-### Provider ComfyUI (Sprint 3)
-- `src/infrastructure/providers/comfyui/` — 8 arquivos
-- Capabilities: image-generation, inpainting, image-to-image, upscaling
-- `ComfyUIBackend` integrado ao `ExecutionManager`
+### Epic 3 — AI Lab ✅ (atual)
+- `runtime/lab/` — histórico de execuções (SQLite), benchmark, avaliações manuais, cache experimental
+- `runtime/models/catalog/` — 6 manifests: BRIA RMBG, RealESRGAN, FLUX, ControlNet, IPAdapter, Whisper
+- AI Playground v2 — 5 abas: Execute, History, Compare, Benchmark, Catalog
+- Arquitetura congelada — nenhuma alteração estrutural sem ADR aprovada
 
-### AI Runtime on RunPod (Sprint 4)
-- Workflow `image/identity` funcional
-- Network Volume com symlinks para modelos
-- Boot sequence via `scripts/start.sh`
+## Capabilities
 
-### Runtime Consolidation (Sprint 5)
-- Módulo `runtime/` standalone + `handler.py` thin entry point
-- `Dockerfile.runtime` + `build-runtime.yml` CI/CD
-- `WorkflowValidator` com checks de VRAM e provider
-- Estrutura de workflows por categoria
+| Capability | Workflow | Status | VRAM | Modelo |
+|-----------|---------|--------|------|--------|
+| `image-identity` | `image/identity` | ✅ Ativo | 0 | nenhum |
+| `background-remove` | `image/background-remove` | 🔧 Aguarda modelo | 8GB | BRIA RMBG-1.4 |
+| `image-upscale` | `image/image-upscale` | 🔧 Aguarda modelo | 4GB | RealESRGAN x4plus |
+| `face-segmentation` | `image/face-segmentation` | 🔜 Planejado | 8GB | — |
+| `haircut` | `image/haircut` | 🔜 Planejado | 24GB | FLUX + IPAdapter |
+| `beard` | `image/beard` | 🔜 Planejado | 24GB | FLUX + IPAdapter |
+| `makeup` | `image/makeup` | 🔜 Planejado | 24GB | FLUX + IPAdapter |
+| `virtual-try-on` | `image/virtual-try-on` | 🔜 Planejado | 24GB | FLUX + IPAdapter |
 
-## Roadmap
+## Fluxo obrigatório de nova capability
 
-### Sprint 6 — Primeiro Workflow Real
-- Workflow de produção para GOODLOOK
-- Modelos carregados via Network Volume
+```
+Workflow → AI Playground → Benchmark → Aprovação → API → Aplicativo
+```
 
-### Sprint 7 — Integração com Produto
-- Autenticação de produto consumidor
-- Monitoramento de jobs em produção
+Nenhuma capability chega ao aplicativo sem ser validada e benchmarkada no AI Lab.
 
-### Backlog
-- Workflows de áudio, vídeo, tradução
-- Dashboard de observability
-- Rate limiting por produto
-
-## Princípios técnicos
+## Princípios técnicos permanentes
 
 - Workflows **nunca** referenciam modelos ou backends diretamente
-- Providers são intercambiáveis — trocar ComfyUI = novo backend + provider
+- Apps **nunca** conhecem modelos, providers, workflows ou implementação interna
 - Modelos **nunca** ficam na imagem Docker — sempre via Network Volume
-- IaC: todo setup do ambiente é declarado em código (`start.sh`, `bootstrap.py`)
+- IaC: todo setup declarado em código (`start.sh`, `bootstrap.py`)
 - Hardware é responsabilidade da infraestrutura, não do código
+- Arquitetura congelada desde o Epic 3 — evolução apenas de capabilities

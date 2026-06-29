@@ -84,6 +84,46 @@
 
 ---
 
+## Congelamento da arquitetura (Epic 3)
+
+**Decisão:** A partir do Epic 3, nenhuma reorganização estrutural, alteração de responsabilidades do Engine/Runtime, modificação da API pública ou criação de novos padrões arquiteturais sem uma ADR (Architecture Decision Record) aprovada.
+
+**Motivo:** A plataforma atingiu maturidade arquitetural. A prioridade agora é a evolução de capabilities, não de infraestrutura. Mudanças estruturais interrompem o trabalho de validação de modelos e atrasam a entrega de valor.
+
+**Como aplicar:** Qualquer proposta de mudança estrutural deve ser documentada como ADR com alternativas analisadas antes de implementação. Novas funcionalidades usam exclusivamente a arquitetura existente.
+
+---
+
+## AI Lab como camada observacional (não invasiva)
+
+**Decisão:** O AI Lab (`runtime/lab/`) é uma extensão observacional do Runtime — não modifica nenhum comportamento existente do Engine, Runtime ou handler RunPod.
+
+**Motivo:** O handler de produção no RunPod não deve ter dependências do Lab (SQLite, arquivos, etc.). O Lab existe apenas no contexto do Playground local de desenvolvimento.
+
+**Como funciona:** O Playground inicializa `Lab` separadamente. O Runtime não sabe que o Lab existe. O `record()` é chamado apenas no `playground/server.py`, nunca no `runtime/__init__.py`.
+
+---
+
+## Catálogo de modelos em manifests YAML (não em código)
+
+**Decisão:** Cada modelo tem um manifest YAML em `runtime/models/catalog/{model}/manifest.yaml`. O catálogo não é um registro em código Python.
+
+**Motivo:** Manifests são legíveis por humanos, versionados em git, e podem ser atualizados sem modificar código. Engenheiros e pesquisadores podem adicionar modelos sem tocar no Runtime.
+
+**Campos obrigatórios:** id, name, version, vendor, license, category, status, installation.path, requirements.min_vram, capabilities.
+
+---
+
+## Cache experimental opt-in
+
+**Decisão:** O cache experimental do AI Lab é ativado explicitamente pelo usuário no Playground, nunca automático.
+
+**Motivo:** Resultados de IA não são determinísticos — o mesmo input pode produzir outputs diferentes dependendo de seed e temperatura. O cache é útil durante desenvolvimento/pesquisa, perigoso em produção.
+
+**Chave de cache:** SHA-256 de `(workflow_id + input_image_hash + node_overrides)`. Qualquer diferença nos parâmetros invalida o cache.
+
+---
+
 ## HairFastGAN descartado
 
 **Decisão:** NÃO usar HairFastGAN como componente da plataforma.
