@@ -1,0 +1,62 @@
+runtime:
+  name: RATEC AI Runtime
+  version: "1.0.0"
+  description: >
+    Ambiente de execução de IA da plataforma RATEC.
+    Responsável pela execução de todos os Workflows de IA dos produtos RATEC.
+
+providers:
+  - id: comfyui
+    version: latest
+    status: active
+    description: Motor de execução de workflows de imagem
+
+features:
+  - image
+
+storage:
+  persistent: true
+  volume_path: /runpod-volume
+  structure:
+    - models/checkpoints
+    - models/clip
+    - models/clip_vision
+    - models/controlnet
+    - models/ipadapter
+    - models/loras
+    - models/vae
+    - models/upscale_models
+    - models/embeddings
+    - workflows
+    - output
+    - input
+    - temp
+    - logs
+
+gpu:
+  minimum_vram: 24GB
+  preferred: NVIDIA RTX A5000
+  note: >
+    Configuração de hardware é responsabilidade da infraestrutura,
+    não do código. A aplicação é agnóstica ao modelo de GPU.
+
+supported_models: []
+
+workflows:
+  - id: image/identity
+    status: active
+    description: Workflow de validação de infraestrutura
+
+environment:
+  comfyui_url: "http://127.0.0.1:8188"
+  comfyui_port: 8188
+  comfyui_ready_timeout: 120
+  job_timeout: 300
+
+consumers:
+  - GOODLOOK
+  - Audiover
+  - Internice
+  - Animapages
+  - Karaokêro
+  - Tradulino
