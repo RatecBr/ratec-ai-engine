@@ -11,8 +11,10 @@ description: >
   Alta qualidade em cabelos, transparências e bordas complexas.
 
 origin:
-  url: https://huggingface.co/briaai/RMBG-1.4
+  url: https://huggingface.co/briaai/RMBG-1.4/resolve/main/model.pth
+  repo: https://huggingface.co/briaai/RMBG-1.4
   sha256: null
+  requires_hf_token: true
 
 installation:
   path: models/BRIA/RMBG-1.4.pth

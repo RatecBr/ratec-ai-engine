@@ -5,6 +5,7 @@ from pathlib import Path
 from runtime.configuration import RuntimeConfig
 
 _VOLUME_DIRS = [
+    "models/BRIA",
     "models/checkpoints",
     "models/clip",
     "models/clip_vision",

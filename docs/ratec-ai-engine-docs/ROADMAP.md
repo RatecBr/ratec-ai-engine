@@ -53,6 +53,49 @@
 
 ---
 
+## Release 1.0.1-alpha — Consolidação da Infraestrutura
+
+> **Status:** Em andamento  
+> **Foco:** Definir a infraestrutura tecnológica oficial e preparar o ambiente para testes
+
+### Infraestrutura tecnológica definida
+
+| Componente | Decisão |
+|-----------|---------|
+| Backend principal | Firebase (Auth + Firestore + Storage) |
+| Execução de modelos | AI Runtime (RunPod + ComfyUI) |
+| Geração de imagens | Exclusivamente local via AI Runtime |
+| APIs externas | Apenas textuais: OpenAI, Claude, Gemini |
+| Proibido | Replicate, Stability, Fal.ai, Segmind, HF Inference API |
+
+### Modelos prioritários
+
+| Modelo | Status | VRAM | Capability |
+|--------|--------|------|-----------|
+| BRIA RMBG-1.4 | ▶ instalar | 4GB | background-remove |
+| RealESRGAN x4plus | ▶ instalar | 4GB | image-upscale |
+| FLUX.1-dev | ⏸ aguarda pós-release | 24GB | haircut, beard, makeup |
+| ControlNet FLUX | ⏸ aguarda pós-release | 24GB | haircut, makeup |
+| IPAdapter FLUX | ⏸ aguarda pós-release | 24GB | haircut, beard, makeup |
+| Whisper large-v3 | ⏸ aguarda pós-release | 10GB | audio-transcription |
+| PaddleOCR | ⏸ aguarda pós-release | — | ocr |
+
+### Model Installation Manager
+
+```
+python scripts/install_models.py
+# com HuggingFace token (necessário para BRIA RMBG):
+HF_TOKEN=hf_xxx python scripts/install_models.py
+```
+
+- [ ] Executar `install_models.py` no RunPod
+- [ ] BRIA RMBG-1.4 instalado e health check OK
+- [ ] RealESRGAN x4plus instalado e health check OK
+- [ ] Relatório de instalação gerado sem erros
+- [ ] ComfyUI reconhece ambos os modelos
+
+---
+
 ## Release 1.0.0-alpha — Fase de Validação da Plataforma
 
 > **Status:** Em andamento  

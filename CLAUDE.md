@@ -52,6 +52,22 @@ Se sem resposta clara → reavaliar antes de começar.
 - Todo resultado de execução deve ser registrado via `runtime/lab/` (quando no Playground)
 - Cache experimental é opt-in — nunca automático em produção
 
+## Dependências tecnológicas
+
+Antes de adicionar qualquer nova dependência, responder:
+- Já pode ser implementado com o Runtime existente?
+- Existe modelo local equivalente?
+- Reduz ou aumenta a complexidade?
+- Será usada por vários produtos RATEC?
+- Agrega valor real à plataforma?
+
+Se resposta negativa → não incorporar.
+
+**Firebase** permanece como backend principal (Auth, Firestore, Storage). Não migrar, não adicionar Supabase ou outro banco.  
+**Geração de imagens** ocorre exclusivamente via AI Runtime (local). Nunca via API externa (Replicate, Stability, Fal.ai, etc.).  
+**APIs externas permitidas** (apenas tarefas textuais): OpenAI, Claude, Gemini.  
+**AI Runtime** nunca acessa Firestore diretamente — toda persistência passa pelo Engine.
+
 ## Referências rápidas
 
 | O que fazer | Onde |

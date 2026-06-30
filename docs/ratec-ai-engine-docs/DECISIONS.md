@@ -162,6 +162,50 @@
 
 ---
 
+## Firebase como backend principal (Release 1.0.1-alpha)
+
+**Decisão:** Firebase permanece como backend principal da plataforma. Nenhuma migração para outro serviço nesta fase.
+
+**Componentes utilizados:**
+- Firebase Authentication — autenticação de usuários e produtos
+- Firestore — dados estruturados: usuários, aplicações, capabilities, histórico, benchmark, configurações, logs funcionais
+- Firebase Storage — imagens enviadas, imagens processadas, datasets, arquivos temporários e resultados
+
+**Motivo:** Infraestrutura já existente, madura e utilizada pelos produtos RATEC. Evitar nova dependência sem necessidade comprovada.
+
+**Restrições:**
+- Nenhum modelo é executado no Firebase
+- Todo processamento pesado ocorre no RunPod
+- O AI Runtime nunca acessa o Firestore diretamente
+- Toda comunicação com Firebase ocorre através do RATEC AI ENGINE (Engine é o único responsável pela persistência)
+
+---
+
+## Modelos locais como estratégia padrão
+
+**Decisão:** Toda geração de imagens ocorre localmente via AI Runtime. APIs externas de geração de imagens (Replicate, Stability API, Segmind, Fal.ai, Together AI, HuggingFace Inference API) não são utilizadas.
+
+**APIs externas permitidas:** apenas para tarefas textuais e multimodais onde não há alternativa local estável:
+- OpenAI — interpretação, geração de prompts, classificação, OCR inteligente, resumo
+- Claude — raciocínio complexo, análise de documentos, revisão de conteúdo
+- Gemini — interpretação multimodal, análise de imagens, tarefas de grande contexto
+
+**Motivo:** Redução de custos, maior controle, independência tecnológica, facilidade de customização. Modelos locais são a estratégia de longo prazo da plataforma.
+
+**Critério para incorporar nova API:** a API deve agregar valor que não pode ser obtido localmente, ser utilizada por múltiplos produtos RATEC e reduzir a complexidade geral.
+
+---
+
+## Modelos prioritários da plataforma (Release 1.0.1-alpha)
+
+**Decisão:** Os modelos oficiais da plataforma são: BRIA RMBG, RealESRGAN, FLUX, ControlNet, IPAdapter, Whisper, PaddleOCR. Todos armazenados no Network Volume, nunca na imagem Docker.
+
+**Motivo:** Definição clara do escopo de modelos para evitar proliferação descontrolada. Novos modelos devem ser avaliados antes de incorporados.
+
+**Instalação:** via `scripts/install_models.py` (Model Installation Manager). Executado uma vez para popular o Network Volume.
+
+---
+
 ## WorkflowValidator obrigatório
 
 **Decisão:** Todo workflow deve passar pelo `WorkflowValidator` antes de ser registrado ou executado.
