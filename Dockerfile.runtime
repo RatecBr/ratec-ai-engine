@@ -32,6 +32,7 @@ RUN pip install --no-cache-dir -r /handler/requirements-handler.txt
 COPY handler.py    /handler/handler.py
 COPY runtime/      /handler/runtime/
 COPY workflows/    /handler/workflows/
+COPY scripts/      /handler/scripts/
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 COPY scripts/start.sh /start.sh
