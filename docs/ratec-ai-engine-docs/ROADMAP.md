@@ -53,35 +53,104 @@
 
 ---
 
-## Próximo foco: Capabilities em produção
+## Release 1.0.0-alpha — Fase de Validação da Plataforma
 
-### Prioridade 1 — `background-remove` (próximo)
-- Instalar modelo BRIA RMBG-1.4 no Network Volume
-- Testar e benchmarkar no AI Playground
-- Aprovar + publicar como capability estável
+> **Status:** Em andamento  
+> **Congelamento:** Nenhuma nova funcionalidade até aprovação completa
 
-### Prioridade 2 — `image-upscale`
-- Instalar modelo RealESRGAN x4plus no Network Volume
-- Testar e benchmarkar
-- Aprovar + publicar
+### Estado atual da plataforma (auditado em 2026-06-29)
 
-### Prioridade 3 — `face-segmentation`
+| Componente | Status |
+|-----------|--------|
+| runtime/__init__.py v2.0.0 | ✅ Estável |
+| runtime/bootstrap.py | ✅ Funcional |
+| runtime/lab/ (SQLite + cache) | ✅ Completo |
+| runtime/models/catalog/ (6 manifests) | ✅ Definidos |
+| workflows com comfyui.json | ✅ 3 (identity, background-remove, image-upscale) |
+| workflows planejados (sem comfyui.json) | ⏸️ 6 (beard, haircut, face-seg, makeup, try-on, image-gen) |
+| playground/server.py v2.0.0 (5 abas) | ✅ Funcional |
+| scripts/start.sh | ✅ Funcional |
+| Dockerfile.runtime + CI/CD | ✅ Funcional |
+
+### Etapa 1 — Validar Infraestrutura
+
+- [ ] AI Runtime inicia corretamente no RunPod
+- [ ] ComfyUI inicia automaticamente via `scripts/start.sh`
+- [ ] Provider conecta ao ComfyUI local (`localhost:8188`)
+- [ ] WorkflowManager encontra os workflows (`image/identity`, `image/background-remove`, `image/image-upscale`)
+- [ ] Network Volume (`/runpod-volume/`) está montado e acessível
+- [ ] Upload de imagem para ComfyUI funciona
+- [ ] Download de resultado funciona
+- [ ] GPU é detectada (`nvidia-smi`)
+- [ ] Diretórios de modelos estão nos caminhos corretos
+
+### Etapa 2 — Validar Modelos
+
+Instalar apenas os modelos necessários para esta release:
+
+| Modelo | Local no Volume | Capability |
+|--------|----------------|------------|
+| BRIA RMBG-1.4 | `/runpod-volume/models/...` | background-remove |
+| RealESRGAN x4plus | `/runpod-volume/models/upscale_models/` | image-upscale |
+
+- [ ] BRIA RMBG-1.4: download, instalação, carregamento, execução
+- [ ] RealESRGAN x4plus: download, instalação, carregamento, execução
+- [ ] VRAM documentada para cada modelo
+- [ ] Tempo de processamento documentado para cada modelo
+
+### Etapa 3 — Validar Capabilities
+
+Executar exaustivamente as três capabilities:
+
+- [ ] `image-identity`: passagem de imagem, resultado correto, sem erros
+- [ ] `background-remove`: remoção de fundo, qualidade do resultado, múltiplas imagens
+- [ ] `image-upscale`: upscale 4x, qualidade, tempo de processamento
+
+### Etapa 4 — AI Playground
+
+- [ ] Execute: executa qualquer das 3 capabilities sem erro
+- [ ] History: todas as execuções gravadas, imagens salvas
+- [ ] Benchmark: métricas agregadas corretas
+- [ ] Compare: comparação side-by-side funciona
+- [ ] Catalog: lista modelos e capabilities corretamente
+
+### Critérios de Aprovação
+
+A plataforma será considerada aprovada quando:
+
+- [ ] `image-identity` funcionar de forma consistente
+- [ ] `background-remove` funcionar corretamente
+- [ ] `image-upscale` funcionar corretamente
+- [ ] AI Playground executar qualquer Capability sem erros
+- [ ] AI Runtime permanecer estável durante múltiplas execuções
+- [ ] Não existirem falhas conhecidas na infraestrutura
+
+---
+
+## Pós-Release 1.0.0-alpha: Integração com GoodLook
+
+Somente após a aprovação completa acima. O GoodLook consome exclusivamente via API pública — nunca conhece modelos, workflows, ComfyUI ou Runtime.
+
+---
+
+## Pós-Integração: Evolução da Plataforma
+
+### Prioridade 1 — `face-segmentation`
 - Definir nó ComfyUI para segmentação facial
 - Implementar `comfyui.json`
 - Validar como pré-requisito para haircut/beard/makeup
 
-### Prioridade 4 — `haircut`, `beard`, `makeup`
+### Prioridade 2 — `haircut`, `beard`, `makeup`
 - Instalar FLUX.1-dev + IPAdapter no Network Volume
 - Implementar comfyui.json para cada capability
 - Benchmarkar e comparar versões no AI Lab
 
-### Prioridade 5 — `virtual-try-on`
+### Prioridade 3 — `virtual-try-on`
 - Dependência: background-remove + FLUX
 - Implementar workflow
 - Validar
 
 ### Backlog
-- Integração com o primeiro produto consumidor (GOODLOOK)
 - Capabilities de áudio: `audio-transcription` (Audiover, Karaokêro)
 - Capabilities de tradução: Tradulino
 - Dashboard de observability em produção
@@ -90,7 +159,7 @@
 
 ---
 
-## Métricas de qualidade da plataforma (pós-Epic 3)
+## Métricas de qualidade da plataforma
 
 Antes de integrar qualquer aplicativo, monitorar:
 
