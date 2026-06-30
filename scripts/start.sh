@@ -52,7 +52,7 @@ echo "[ratec] Symlinks configurados"
 echo "[ratec] Executando install_models.py..."
 RUNPOD_VOLUME_PATH="${VOLUME}" \
 COMFYUI_PATH="${COMFYUI}" \
-python3 "${HANDLER_DIR}/scripts/install_models.py" \
+timeout 300 python3 "${HANDLER_DIR}/scripts/install_models.py" \
     >> "${VOLUME}/logs/install_models.log" 2>&1
 INSTALL_EXIT=$?
 if [ "${INSTALL_EXIT}" -eq 0 ]; then
