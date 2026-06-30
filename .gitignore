@@ -31,3 +31,6 @@ htmlcov/
 
 # Docker
 *.log
+
+# Ad-hoc debug/validation scripts na raiz (podem conter credenciais)
+/test_*.py

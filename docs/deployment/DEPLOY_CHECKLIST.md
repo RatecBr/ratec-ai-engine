@@ -4,8 +4,9 @@ Utilize esta lista de verificação sempre que uma nova versão do RATEC AI ENGI
 Este processo assume que a automação de CI/CD (GitHub Actions) já concluiu o build das imagens Docker.
 
 ## 1. Preparação (Pre-Deploy)
-- [ ] Confirme no painel do **GitHub Actions** que o workflow `build-serverless.yml` foi finalizado com sucesso.
-- [ ] Obtenha o hash da versão no log do Actions (ex: `serverless-1ec6fa9`).
+- [ ] Confirme no painel do **GitHub Actions** que o workflow `build-serverless.yml` foi acionado (ele não rodará se não houverem mudanças no backend).
+- [ ] Verifique se o workflow foi finalizado com status de **Sucesso**.
+- [ ] Obtenha o **Short Hash** da versão no log do Actions (ex: `serverless-1ec6fa9` - observe que são os 7 primeiros caracteres do commit, e não o hash inteiro).
 - [ ] Confirme se o Web Console (`engine.ra.tec.br`) correspondente já teve sua build finalizada com sucesso pela Vercel.
 
 ## 2. Atualização de Infraestrutura (Opcional se alterada via CLI, Obrigatório no RunPod)

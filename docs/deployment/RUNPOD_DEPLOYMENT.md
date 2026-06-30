@@ -16,8 +16,10 @@ Devido às políticas de segurança e permissões do RunPod, chaves de API restr
 
 ### Passo 1: Localizar a Nova Tag Imutável
 - Abra o painel do **GitHub Actions**.
-- Acesse a execução mais recente da branch de produção.
-- Nos logs do step `Extract metadata` (ou no card de informações no painel do Web Console), copie a Tag gerada pelo commit mais recente.
+- Acesse a execução **mais recente da branch de produção que tenha finalizado com sucesso**.
+- **Atenção:** O CI/CD só cria uma nova imagem se houverem alterações no código-fonte (ex: `handler.py` ou `Dockerfile`). Commits apenas de documentação não geram imagem nova.
+- Nos logs do step `Extract metadata` (ou no card de informações no painel do Web Console), copie a Tag gerada pelo commit.
+- A tag utilizará o **Short Hash** do commit (os 7 primeiros caracteres).
   > Exemplo: `ghcr.io/ratecbr/ratec-ai-engine:serverless-1ec6fa9`
 
 ### Passo 2: Atualizar o Endpoint no RunPod

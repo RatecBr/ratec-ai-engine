@@ -257,20 +257,6 @@ class Runtime:
     def _print_startup(self) -> None:
         gpu = get_gpu()
         available = self._wm.list_available()
-        
-        from src.application.admin.version_provider import version_provider
-        info = version_provider.build_info
-                
-        print("=" * 40, flush=True)
-        print("RATEC AI ENGINE", flush=True)
-        print(f"Version: {info.get('engine_version')}", flush=True)
-        print(f"Commit: {info.get('git_short_commit')}", flush=True)
-        print(f"Branch: {info.get('git_branch')}", flush=True)
-        print(f"Docker: {info.get('docker_tag')}", flush=True)
-        print(f"Build: {info.get('build_date')}", flush=True)
-        print(f"Started: {_BOOT_TIME.isoformat()}", flush=True)
-        print("=" * 40, flush=True)
-            
         print(f"[ratec] Python {platform.python_version()} | Host: {socket.gethostname()}", flush=True)
         print(f"[ratec] GPU: {gpu.model or 'não detectada'} | VRAM: {gpu.vram_total_mb} MB", flush=True)
         print(f"[ratec] ComfyUI: {self._config.comfyui_url}", flush=True)
