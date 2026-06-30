@@ -1,0 +1,51 @@
+id: birefnet
+name: BiRefNet
+version: "1.0"
+vendor: ZhengPeng7
+license: MIT
+category: segmentation
+status: active
+
+description: >
+  Modelo open source de remoção de fundo de alta qualidade.
+  Alternativa ao BRIA RMBG sem necessidade de autenticação ou licença comercial.
+  O modelo é baixado automaticamente pelo custom node na primeira execução do ComfyUI.
+
+preferred: false
+fallback_priority: 2
+requires_hf_token: false
+requires_license_acceptance: false
+license_type: mit
+download_strategy: custom_node_auto
+
+origin:
+  url: https://huggingface.co/ZhengPeng7/BiRefNet
+  sha256: null
+
+installation:
+  volume_path: /runpod-volume/models/BiRefNet
+  custom_nodes:
+    - name: ComfyUI_birefnet_ll
+      url: https://github.com/lldacing/ComfyUI_birefnet_ll
+
+requirements:
+  gpu: true
+  min_vram: "4GB"
+  python_packages: []
+
+metrics:
+  model_size_mb: 180
+  avg_inference_ms: null
+
+capabilities:
+  - background-remove
+
+compatible_workflows:
+  - image/background-remove
+
+workflow_variants:
+  - comfyui.birefnet.json
+
+comfyui_nodes:
+  - BiRefNetLoader
+  - BiRefNet

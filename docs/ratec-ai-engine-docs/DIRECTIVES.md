@@ -185,6 +185,27 @@ Se a resposta for negativa para a maioria dessas perguntas, a dependência não 
 
 ---
 
+## 13. Nenhuma Capability Depende de um Único Modelo
+
+Toda Capability deve possuir uma lista ordenada de modelos compatíveis.
+
+O Runtime seleciona automaticamente o melhor modelo disponível no ambiente.
+
+Nunca assumir que um modelo específico estará disponível:
+
+- Modelos podem exigir autenticação ou licença.
+- Modelos podem estar indisponíveis por questões comerciais.
+- Modelos podem ser substituídos por versões superiores.
+
+Ao implementar uma nova Capability:
+
+1. Definir pelo menos um modelo preferencial e uma alternativa open source.
+2. Registrar os modelos no catálogo com `fallback_priority`, `requires_hf_token` e `license_type`.
+3. Criar um arquivo `comfyui.{model_id}.json` para cada modelo com workflow diferente do padrão.
+4. O instalador decide automaticamente qual modelo instalar com base na disponibilidade.
+
+---
+
 ## Referência de implementação
 
 | Ação | Como fazer |

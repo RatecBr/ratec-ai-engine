@@ -6,6 +6,13 @@ license: BSD-3-Clause
 category: upscale
 status: active
 
+preferred: true
+fallback_priority: 1
+requires_hf_token: false
+requires_license_acceptance: false
+license_type: bsd3
+download_strategy: direct_url
+
 description: >
   Super-resolução 4x por redes neurais convolucionais.
   Excelente para fotos realistas. Versão anime disponível separadamente.
