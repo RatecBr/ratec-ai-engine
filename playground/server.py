@@ -1,13 +1,15 @@
 """
-RATEC AI Playground — Laboratório de Workflows e Capabilities
-=============================================================
-Interface web completa para pesquisa, avaliação e evolução dos modelos de IA.
+RATEC AI Engine — Control Panel
+================================
+Interface web oficial para desenvolvimento, validação e administração da plataforma.
 
 Abas:
+  Dashboard — status completo em tempo real (ComfyUI, GPU, Volume, modelos)
   Execute   — executa qualquer capability com imagem e parâmetros
   History   — histórico completo de execuções com imagens e métricas
   Compare   — comparação lado a lado de duas execuções
   Benchmark — métricas agregadas por capability e workflow
+  Logs      — visualização de logs do sistema (ComfyUI, instalação de modelos)
   Catalog   — catálogo de modelos e capabilities
 
 Uso:
@@ -15,8 +17,9 @@ Uso:
     uvicorn playground.server:app --port 7860 --reload
 
 Variáveis de ambiente:
-    COMFYUI_URL      URL do ComfyUI local (default: http://127.0.0.1:8188)
-    LAB_DATA_PATH    Diretório dos dados do Lab (default: ./lab_data)
+    COMFYUI_URL         URL do ComfyUI (default: http://127.0.0.1:8188)
+    RUNPOD_VOLUME_PATH  Caminho do Network Volume (default: /runpod-volume)
+    LAB_DATA_PATH       Diretório dos dados do Lab (default: ./lab_data)
 """
 from __future__ import annotations
 
@@ -25,24 +28,27 @@ import os
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi import FastAPI, Form, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
 
-from runtime import Runtime, _CAPABILITY_ROUTES
+from runtime import Runtime, _BOOT_TIME, _CAPABILITY_ROUTES
+from runtime.health import full_health
 from runtime.lab import Lab
 from playground.catalog import list_capability_models, list_models
 
-app = FastAPI(title="RATEC AI Playground", version="2.0.0")
+app = FastAPI(title="RATEC AI Engine — Control Panel", version="2.1.0")
 
 # ── Inicialização ─────────────────────────────────────────────────────────────
 
 _runtime: Runtime | None = None
 _lab: Lab | None = None
 _lab_dir = Path(os.environ.get("LAB_DATA_PATH", "./lab_data"))
+
+_LOG_ALLOWLIST = {"comfyui.log", "install_models.log"}
 
 
 @app.on_event("startup")
@@ -74,20 +80,29 @@ _HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RATEC AI Lab</title>
+<title>RATEC AI Engine</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:#0a0a0a;color:#d4d4d4;min-height:100vh}
 a{color:#60a5fa;text-decoration:none}
 
 /* Header */
-header{background:#111;border-bottom:1px solid #222;padding:12px 20px;display:flex;align-items:center;gap:16px}
-header h1{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px}
+header{background:#111;border-bottom:1px solid #222;padding:10px 20px;display:flex;align-items:center;gap:12px}
+header h1{font-size:15px;font-weight:700;color:#fff;letter-spacing:-.3px}
 header .version{font-size:11px;color:#555;padding:2px 6px;background:#1a1a1a;border-radius:3px}
+header .env-badge{font-size:11px;padding:2px 8px;border-radius:3px;font-weight:600}
+header .env-production{background:#052e16;color:#4ade80}
+header .env-development{background:#1c1500;color:#fbbf24}
+#hdr-refresh{margin-left:auto;font-size:11px;color:#444;cursor:pointer;padding:4px 10px;background:#161616;border:1px solid #222;border-radius:4px}
+#hdr-refresh:hover{color:#888}
+#hdr-online{width:8px;height:8px;border-radius:50%;background:#555;margin-right:4px;display:inline-block}
+#hdr-online.ok{background:#4ade80;box-shadow:0 0 6px #4ade8066}
+#hdr-online.warn{background:#fbbf24}
+#hdr-online.fail{background:#f87171}
 
 /* Nav */
-nav{background:#111;border-bottom:1px solid #1f1f1f;padding:0 20px;display:flex;gap:2px}
-nav button{background:none;border:none;color:#666;padding:10px 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s}
+nav{background:#111;border-bottom:1px solid #1f1f1f;padding:0 20px;display:flex;gap:2px;overflow-x:auto}
+nav button{background:none;border:none;color:#666;padding:10px 14px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s;white-space:nowrap}
 nav button:hover{color:#aaa}
 nav button.active{color:#fff;border-bottom-color:#4ade80}
 
@@ -96,16 +111,62 @@ nav button.active{color:#fff;border-bottom-color:#4ade80}
 .tab{display:none}.tab.active{display:block}
 
 /* Panels */
-.panel{background:#111;border:1px solid #1f1f1f;border-radius:8px;padding:18px}
-.panel-title{font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+.panel{background:#111;border:1px solid #1f1f1f;border-radius:8px;padding:18px;margin-bottom:16px}
+.panel-title{font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-3{display:grid;grid-template-columns:320px 1fr 1fr;gap:16px}
 .grid-sidebar{display:grid;grid-template-columns:300px 1fr;gap:16px}
 
+/* Dashboard status cards */
+.dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.dash-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.dash-grid{grid-template-columns:1fr}}
+.status-card{background:#111;border:1px solid #1f1f1f;border-radius:8px;padding:16px;position:relative;overflow:hidden}
+.status-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.status-card.ok::before{background:#22c55e}
+.status-card.warn::before{background:#f59e0b}
+.status-card.fail::before{background:#ef4444}
+.status-card.loading::before{background:#3b82f6;animation:pulse .8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.sc-label{font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.sc-value{font-size:18px;font-weight:700;color:#d4d4d4;line-height:1.2}
+.sc-sub{font-size:11px;color:#555;margin-top:4px}
+.sc-icon{font-size:22px;position:absolute;right:14px;top:14px;opacity:.2}
+
+/* VRAM bar */
+.vram-bar-wrap{margin-top:8px}
+.vram-bar-bg{background:#1a1a1a;border-radius:3px;height:5px;overflow:hidden}
+.vram-bar-fill{height:5px;border-radius:3px;background:#4ade80;transition:width .5s}
+.vram-bar-fill.mid{background:#f59e0b}
+.vram-bar-fill.high{background:#ef4444}
+.vram-bar-label{font-size:10px;color:#555;margin-top:3px}
+
+/* Dash sections */
+.dash-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.dash-row{grid-template-columns:1fr}}
+.model-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #161616}
+.model-row:last-child{border:0}
+.model-name{font-size:13px;color:#d4d4d4}
+.model-id{font-size:11px;color:#4ade80;font-family:monospace}
+.cap-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:#0d1a0d;border:1px solid #1a3a1a;border-radius:20px;font-size:12px;color:#4ade80;margin:3px}
+.cap-pill.sys{background:#0a1a2a;border-color:#1a3050;color:#60a5fa}
+.cap-pill.plan{background:#1a1a0a;border-color:#3a3010;color:#fbbf24}
+.quick-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* Quick action result */
+.action-result{margin-top:12px;background:#0d0d0d;border:1px solid #1f1f1f;border-radius:6px;padding:12px;font-family:monospace;font-size:11px;color:#888;overflow:auto;max-height:200px;white-space:pre;display:none}
+
+/* Refresh bar */
+.refresh-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.refresh-bar .countdown{font-size:11px;color:#444}
+.refresh-bar button{font-size:11px;padding:4px 10px;background:#161616;border:1px solid #222;border-radius:4px;color:#666;cursor:pointer}
+.refresh-bar button:hover{color:#aaa}
+.last-updated{font-size:11px;color:#444;margin-left:auto}
+
 /* Form */
 label{display:block;font-size:12px;color:#777;margin:12px 0 5px}
 label:first-child{margin-top:0}
-select,input[type=text],textarea{width:100%;padding:8px 10px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;color:#d4d4d4;font-size:13px;outline:none}
+select,input[type=text],input[type=number],textarea{width:100%;padding:8px 10px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;color:#d4d4d4;font-size:13px;outline:none}
 select:focus,input:focus,textarea:focus{border-color:#404040}
 textarea{resize:vertical;font-family:monospace;font-size:12px}
 
@@ -124,6 +185,7 @@ textarea{resize:vertical;font-family:monospace;font-size:12px}
 .btn-ghost{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a}.btn-ghost:hover{background:#222}
 .btn-danger{background:#2a0a0a;color:#f87171;border:1px solid #3a1a1a}.btn-danger:hover{background:#3a1010}
 .btn-full{width:100%;justify-content:center;margin-top:12px}
+.btn-blue{background:#0c1a3a;color:#60a5fa;border:1px solid #1a3060}.btn-blue:hover{background:#0d2050}
 
 /* Status */
 .status{font-size:12px;color:#666;min-height:18px;margin-top:8px}
@@ -177,6 +239,17 @@ tr.selected td{background:#0d1a0d}
 .compare-img-wrap{background:#0d0d0d;border:1px solid #1f1f1f;border-radius:6px;padding:8px;min-height:200px;display:flex;align-items:center;justify-content:center}
 .compare-img-wrap img{max-width:100%;max-height:360px;border-radius:4px}
 
+/* Logs */
+.log-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.log-controls select{width:auto;min-width:160px}
+.log-viewer{background:#060606;border:1px solid #1a1a1a;border-radius:6px;padding:14px;font-family:'Courier New',monospace;font-size:11px;color:#5a8f5a;overflow:auto;height:520px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.log-viewer .log-err{color:#f87171}
+.log-viewer .log-warn{color:#fbbf24}
+.log-meta{font-size:11px;color:#444;margin-top:8px}
+.log-empty{color:#333;font-size:13px;text-align:center;padding:80px 0}
+.auto-badge{font-size:10px;padding:2px 6px;border-radius:3px;font-weight:700;background:#052e16;color:#4ade80}
+.auto-badge.off{background:#1a1a1a;color:#555}
+
 /* Scrollbar */
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:#0d0d0d}
@@ -185,20 +258,107 @@ tr.selected td{background:#0d1a0d}
 </head>
 <body>
 <header>
-  <h1>⚗️ RATEC AI Lab</h1>
-  <span class="version">v2.0</span>
-  <span style="margin-left:auto;font-size:12px;color:#555" id="header-status">inicializando...</span>
+  <h1>⚗ RATEC AI Engine</h1>
+  <span class="version" id="hdr-version">v2.0</span>
+  <span id="hdr-env" class="env-badge env-development" style="display:none"></span>
+  <span style="margin-left:8px;font-size:12px;color:#555" id="hdr-hostname"></span>
+  <span id="hdr-refresh" onclick="refreshDashboard()" title="Atualizar status">
+    <span id="hdr-online"></span>atualizar
+  </span>
 </header>
 <nav>
-  <button onclick="showTab('execute')" id="tab-btn-execute" class="active">▶ Execute</button>
+  <button onclick="showTab('dashboard')" id="tab-btn-dashboard" class="active">🖥 Dashboard</button>
+  <button onclick="showTab('execute')" id="tab-btn-execute">▶ Execute</button>
   <button onclick="showTab('history')" id="tab-btn-history">📋 History</button>
   <button onclick="showTab('compare')" id="tab-btn-compare">⚖ Compare</button>
   <button onclick="showTab('benchmark')" id="tab-btn-benchmark">📊 Benchmark</button>
+  <button onclick="showTab('logs')" id="tab-btn-logs">📄 Logs</button>
   <button onclick="showTab('catalog')" id="tab-btn-catalog">🗂 Catalog</button>
 </nav>
 
+<!-- ═══════════════ TAB: DASHBOARD ═══════════════ -->
+<div id="tab-dashboard" class="tab active">
+<div class="container">
+
+  <!-- Refresh bar -->
+  <div class="refresh-bar">
+    <button onclick="refreshDashboard()">🔄 Atualizar agora</button>
+    <span class="countdown" id="dash-countdown"></span>
+    <span class="last-updated" id="dash-updated"></span>
+  </div>
+
+  <!-- Status cards row -->
+  <div class="dash-grid" id="dash-cards">
+    <div class="status-card loading" id="sc-runtime">
+      <div class="sc-label">Runtime</div>
+      <div class="sc-value" id="sc-runtime-val">—</div>
+      <div class="sc-sub" id="sc-runtime-sub">Carregando...</div>
+      <span class="sc-icon">⚙</span>
+    </div>
+    <div class="status-card loading" id="sc-comfyui">
+      <div class="sc-label">ComfyUI</div>
+      <div class="sc-value" id="sc-comfyui-val">—</div>
+      <div class="sc-sub" id="sc-comfyui-sub">Verificando...</div>
+      <span class="sc-icon">🧠</span>
+    </div>
+    <div class="status-card loading" id="sc-gpu">
+      <div class="sc-label">GPU</div>
+      <div class="sc-value" id="sc-gpu-val">—</div>
+      <div class="sc-sub" id="sc-gpu-sub">Detectando...</div>
+      <div class="vram-bar-wrap" id="sc-vram-wrap" style="display:none">
+        <div class="vram-bar-bg"><div class="vram-bar-fill" id="vram-fill" style="width:0%"></div></div>
+        <div class="vram-bar-label" id="vram-label"></div>
+      </div>
+      <span class="sc-icon">🎮</span>
+    </div>
+    <div class="status-card loading" id="sc-volume">
+      <div class="sc-label">Network Volume</div>
+      <div class="sc-value" id="sc-vol-val">—</div>
+      <div class="sc-sub" id="sc-vol-sub">Verificando...</div>
+      <span class="sc-icon">💾</span>
+    </div>
+  </div>
+
+  <!-- Main content row -->
+  <div class="dash-row">
+
+    <!-- Left: models + capabilities -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Modelos Ativos</div>
+        <div id="dash-models"><div class="placeholder" style="padding:20px 0">Carregando...</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Capabilities</div>
+        <div id="dash-caps" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+      </div>
+    </div>
+
+    <!-- Right: comfyui details + quick actions -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">ComfyUI — Detalhes</div>
+        <div id="dash-comfyui-detail"><div class="placeholder" style="padding:20px 0">Aguardando dados...</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Ações Rápidas</div>
+        <div class="quick-actions">
+          <button class="btn btn-ghost btn-sm" onclick="runSystemJob('health')">🔄 Health Check</button>
+          <button class="btn btn-ghost btn-sm" onclick="runSystemJob('echo')">📤 Echo Test</button>
+          <button class="btn btn-blue btn-sm" onclick="showTab('execute')">▶ Executar Capability</button>
+          <button class="btn btn-blue btn-sm" onclick="showTab('logs')">📄 Ver Logs</button>
+        </div>
+        <div class="action-result" id="dash-action-result"></div>
+        <div class="status" id="dash-action-status"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
 <!-- ═══════════════ TAB: EXECUTE ═══════════════ -->
-<div id="tab-execute" class="tab active">
+<div id="tab-execute" class="tab">
 <div class="container">
 <div class="grid-3">
   <div>
@@ -207,7 +367,7 @@ tr.selected td{background:#0d1a0d}
       <label>Capability</label>
       <select id="cap-select"><option value="">Carregando...</option></select>
       <label>Imagem de entrada</label>
-      <div class="drop" id="dropzone" ondragover="ev.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="onDrop(event)" onclick="document.getElementById('fileInput').click()">
+      <div class="drop" id="dropzone" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="onDrop(event)" onclick="document.getElementById('fileInput').click()">
         <input type="file" id="fileInput" accept="image/*" onchange="onFile(this.files[0])">
         <div class="drop-text" id="drop-text">Clique ou arraste uma imagem</div>
         <img id="input-preview" style="display:none">
@@ -308,6 +468,36 @@ tr.selected td{background:#0d1a0d}
 </div>
 </div>
 
+<!-- ═══════════════ TAB: LOGS ═══════════════ -->
+<div id="tab-logs" class="tab">
+<div class="container">
+  <div class="panel">
+    <div class="panel-title">
+      Logs do Sistema
+      <span class="auto-badge off" id="log-auto-badge">AUTO OFF</span>
+    </div>
+    <div class="log-controls">
+      <select id="log-file-select" onchange="fetchLogContent()" style="min-width:200px">
+        <option value="">Selecionar arquivo de log...</option>
+      </select>
+      <select id="log-lines-select" onchange="fetchLogContent()" style="width:120px">
+        <option value="100">100 linhas</option>
+        <option value="200" selected>200 linhas</option>
+        <option value="500">500 linhas</option>
+        <option value="1000">1000 linhas</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="fetchLogContent()">↻ Atualizar</button>
+      <button class="btn btn-ghost btn-sm" id="log-auto-btn" onclick="toggleLogAuto()">▶ Auto-refresh (5s)</button>
+      <button class="btn btn-ghost btn-sm" onclick="scrollLogToBottom()">⬇ Ir ao final</button>
+    </div>
+    <div class="log-viewer" id="log-viewer">
+      <div class="log-empty">Selecione um arquivo de log acima.</div>
+    </div>
+    <div class="log-meta" id="log-meta"></div>
+  </div>
+</div>
+</div>
+
 <!-- ═══════════════ TAB: CATALOG ═══════════════ -->
 <div id="tab-catalog" class="tab">
 <div class="container">
@@ -323,8 +513,10 @@ tr.selected td{background:#0d1a0d}
 </div>
 
 <script>
-// ── State ────────────────────────────────────────────────────────────────────
+// ── Global state ──────────────────────────────────────────────────────────────
 let imageB64 = null, imageHash = null, lastExecId = null, currentRating = 0;
+let _dashTimer = null, _dashInterval = 30;
+let _logTimer = null, _logAutoOn = false;
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
 function showTab(name) {
@@ -332,9 +524,11 @@ function showTab(name) {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.getElementById('tab-btn-' + name).classList.add('active');
-  if (name === 'history') loadHistory();
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'history')   loadHistory();
   if (name === 'benchmark') loadBenchmark();
-  if (name === 'catalog') loadCatalog('models');
+  if (name === 'logs')      loadLogs();
+  if (name === 'catalog')   loadCatalog('models');
 }
 
 function showCatalogTab(name) {
@@ -348,24 +542,198 @@ function showCatalogTab(name) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
+  // Load capabilities for Execute tab
   const r = await fetch('/api/capabilities').then(x=>x.json()).catch(()=>({}));
   const caps = r.capabilities || [];
   const sel = document.getElementById('cap-select');
   sel.innerHTML = caps.map(c=>`<option value="${c}">${c}</option>`).join('');
   document.getElementById('run-btn').disabled = false;
 
-  // populate history filter
   const hf = document.getElementById('hist-filter-cap');
   hf.innerHTML = '<option value="">Todas as capabilities</option>' +
     caps.filter(c=>!['echo','health','image-echo'].includes(c))
         .map(c=>`<option value="${c}">${c}</option>`).join('');
 
-  document.getElementById('header-status').textContent =
-    `${caps.length} capabilities • ComfyUI conectado`;
+  // Load dashboard on start
+  await loadDashboard();
+
+  // Auto-refresh dashboard every 30s
+  startDashCountdown();
 }
 init();
 
-// ── Image upload ──────────────────────────────────────────────────────────────
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function setCard(id, status, val, sub) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `status-card ${status}`;
+  if (val !== undefined) document.getElementById(id+'-val').textContent = val;
+  if (sub !== undefined) document.getElementById(id+'-sub').textContent = sub;
+}
+
+async function loadDashboard() {
+  const data = await fetch('/api/status').then(x=>x.json()).catch(e => ({_error: String(e)}));
+  if (data._error) {
+    setCard('sc-runtime','fail','Erro', data._error);
+    document.getElementById('hdr-online').className = 'fail';
+    return;
+  }
+  renderDashboard(data);
+}
+
+function refreshDashboard() {
+  if (_dashTimer) clearTimeout(_dashTimer);
+  loadDashboard();
+  startDashCountdown();
+}
+
+function startDashCountdown() {
+  if (_dashTimer) clearTimeout(_dashTimer);
+  let remaining = _dashInterval;
+  const el = document.getElementById('dash-countdown');
+  const tick = () => {
+    if (remaining <= 0) {
+      loadDashboard();
+      remaining = _dashInterval;
+    }
+    el.textContent = `próxima atualização em ${remaining}s`;
+    remaining--;
+    _dashTimer = setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+function renderDashboard(d) {
+  const now = new Date().toLocaleTimeString('pt-BR');
+  document.getElementById('dash-updated').textContent = `atualizado às ${now}`;
+
+  // Header
+  const hv = document.getElementById('hdr-version');
+  if (hv) hv.textContent = 'v' + (d.runtime_version || '?');
+  const hh = document.getElementById('hdr-hostname');
+  if (hh) hh.textContent = d.hostname || '';
+  const he = document.getElementById('hdr-env');
+  if (he && d.environment) {
+    he.textContent = d.environment;
+    he.style.display = 'inline-block';
+    he.className = 'env-badge ' + (d.environment === 'production' ? 'env-production' : 'env-development');
+  }
+
+  // Runtime card
+  const uptime = d.uptime_seconds != null
+    ? (d.uptime_seconds < 60 ? d.uptime_seconds + 's' : Math.round(d.uptime_seconds/60) + 'min')
+    : '?';
+  setCard('sc-runtime', 'ok', 'v' + (d.runtime_version||'?'), `Python ${d.python_version||'?'} · uptime ${uptime}`);
+
+  // ComfyUI card
+  const cu = d.comfyui || {};
+  if (cu.available) {
+    setCard('sc-comfyui', 'ok', '● Online', `latência ${cu.latency_ms}ms · fila ${cu.queue_pending||0}`);
+    document.getElementById('hdr-online').className = 'ok';
+  } else {
+    setCard('sc-comfyui', 'fail', '● Offline', 'ComfyUI não responde');
+    document.getElementById('hdr-online').className = 'fail';
+  }
+
+  // GPU card
+  const gpu = d.gpu || {};
+  if (gpu.model) {
+    const vramUsed = gpu.vram_used_mb, vramTotal = gpu.vram_total_mb;
+    const vramFree = gpu.vram_free_mb;
+    const pct = vramTotal ? Math.round(vramUsed * 100 / vramTotal) : 0;
+    setCard('sc-gpu', 'ok', gpu.model.replace('NVIDIA ',''), `Driver ${gpu.driver_version||'?'}`);
+    const vramWrap = document.getElementById('sc-vram-wrap');
+    const fill = document.getElementById('vram-fill');
+    const lbl  = document.getElementById('vram-label');
+    if (vramWrap && vramTotal) {
+      vramWrap.style.display = 'block';
+      fill.style.width = pct + '%';
+      fill.className = 'vram-bar-fill' + (pct>80?' high':pct>60?' mid':'');
+      lbl.textContent = `${vramUsed}MB / ${vramTotal}MB usado (${pct}%)`;
+    }
+  } else {
+    setCard('sc-gpu', 'warn', 'Não detectada', 'nvidia-smi indisponível');
+    document.getElementById('hdr-online').className = document.getElementById('hdr-online').className || 'warn';
+  }
+
+  // Volume card
+  const st = d.storage || {};
+  if (st.volume_available) {
+    const free  = st.volume_free_gb  != null ? st.volume_free_gb.toFixed(0)  + 'GB livres' : '';
+    const total = st.volume_total_gb != null ? '/ ' + st.volume_total_gb.toFixed(0) + 'GB' : '';
+    setCard('sc-volume', 'ok', 'Montado', `${free} ${total}`.trim() || 'disponível');
+  } else {
+    setCard('sc-volume', 'warn', 'Não montado', 'RUNPOD_VOLUME_PATH não encontrado');
+  }
+
+  // Active models
+  const modelsEl = document.getElementById('dash-models');
+  const am = d.active_models || {};
+  if (Object.keys(am).length) {
+    modelsEl.innerHTML = Object.entries(am).map(([wf,m]) =>
+      `<div class="model-row">
+        <span class="model-name">${wf}</span>
+        <span class="model-id">${m}</span>
+      </div>`
+    ).join('');
+  } else {
+    modelsEl.innerHTML = '<div style="font-size:12px;color:#555;padding:8px 0">Nenhum modelo ativo — execute install_models.py</div>';
+  }
+
+  // Capabilities pills
+  const capsEl = document.getElementById('dash-caps');
+  const caps = d.capabilities || [];
+  const wfs  = (d.workflows_available || []).map(w => w.replace(/\\/g,'/'));
+  capsEl.innerHTML = caps.map(c => {
+    const isSys = ['echo','health','image-echo'].includes(c);
+    const route = _CAPABILITY_ROUTES_JS[c] || c;
+    const hasWf = wfs.some(w => w === route);
+    const cls = isSys ? 'cap-pill sys' : (hasWf ? 'cap-pill' : 'cap-pill plan');
+    const dot = isSys ? '●' : (hasWf ? '●' : '○');
+    return `<span class="${cls}">${dot} ${c}</span>`;
+  }).join('');
+
+  // ComfyUI detail
+  const detail = document.getElementById('dash-comfyui-detail');
+  const mgr = d.comfyui_manager || {};
+  detail.innerHTML = `
+    <div class="model-row">
+      <span style="font-size:12px;color:#777">Status</span>
+      <span>${cu.available ? '<span class="badge badge-green">Online</span>' : '<span class="badge badge-red">Offline</span>'}</span>
+    </div>
+    ${cu.version ? `<div class="model-row"><span style="font-size:12px;color:#777">Versão</span><span class="model-id">${cu.version}</span></div>` : ''}
+    ${cu.torch_version ? `<div class="model-row"><span style="font-size:12px;color:#777">PyTorch</span><span class="model-id">${cu.torch_version}</span></div>` : ''}
+    ${cu.latency_ms != null ? `<div class="model-row"><span style="font-size:12px;color:#777">Latência</span><span class="model-id">${cu.latency_ms}ms</span></div>` : ''}
+    <div class="model-row">
+      <span style="font-size:12px;color:#777">Fila</span>
+      <span class="model-id">${cu.queue_running||0} rodando · ${cu.queue_pending||0} pendentes</span>
+    </div>
+    <div class="model-row">
+      <span style="font-size:12px;color:#777">Manager</span>
+      <span>${mgr.installed ? '<span class="badge badge-green">instalado</span>' : '<span class="badge badge-gray">não instalado</span>'}${mgr.version?' v'+mgr.version:''}</span>
+    </div>
+    <div class="model-row">
+      <span style="font-size:12px;color:#777">Workflows</span>
+      <span class="model-id">${(d.workflows_available||[]).length} disponíveis</span>
+    </div>`;
+}
+
+// ── Quick actions ─────────────────────────────────────────────────────────────
+async function runSystemJob(wfId) {
+  const el = document.getElementById('dash-action-result');
+  const st = document.getElementById('dash-action-status');
+  el.style.display = 'none';
+  st.textContent = `⏳ Executando ${wfId}...`;
+  const r = await fetch('/api/system/' + wfId, {method:'POST'}).then(x=>x.json()).catch(e=>({error:String(e)}));
+  el.style.display = 'block';
+  el.textContent = JSON.stringify(r, null, 2);
+  st.textContent = r.status === 'completed' ? '✓ Concluído com sucesso' : (r.error ? '✗ ' + r.error : '');
+}
+
+// Populated from /api/capabilities
+let _CAPABILITY_ROUTES_JS = {};
+
+// ── IMAGE UPLOAD ──────────────────────────────────────────────────────────────
 function onDrop(e) {
   e.preventDefault();
   document.getElementById('dropzone').classList.remove('drag');
@@ -384,7 +752,7 @@ function onFile(file) {
   reader.readAsDataURL(file);
 }
 
-// ── Execute ───────────────────────────────────────────────────────────────────
+// ── EXECUTE ───────────────────────────────────────────────────────────────────
 async function runWorkflow() {
   if (!imageB64) { document.getElementById('run-status').textContent='Selecione uma imagem primeiro.'; return; }
   const cap = document.getElementById('cap-select').value;
@@ -447,7 +815,7 @@ function renderExecResult(res, elapsed) {
   area.innerHTML = html;
 }
 
-// ── Evaluation ────────────────────────────────────────────────────────────────
+// ── EVALUATION ────────────────────────────────────────────────────────────────
 function renderEvalForm(execId) {
   currentRating = 0;
   document.getElementById('eval-area').innerHTML = `
@@ -482,7 +850,7 @@ async function submitEval(execId) {
   document.getElementById('eval-status').textContent = '✓ Avaliação salva';
 }
 
-// ── History ───────────────────────────────────────────────────────────────────
+// ── HISTORY ───────────────────────────────────────────────────────────────────
 async function loadHistory() {
   const cap = document.getElementById('hist-filter-cap').value;
   const ok  = document.getElementById('hist-filter-ok').value;
@@ -520,7 +888,6 @@ async function showHistDetail(id) {
   document.getElementById('hist-detail').style.display = 'block';
   document.getElementById('hist-detail').scrollIntoView({behavior:'smooth'});
 
-  // Input image
   const inputArea = document.getElementById('hist-input-img');
   if (rec.input_hash) {
     inputArea.innerHTML = `<img src="/lab/images/input/${rec.input_hash}.png" style="max-width:100%;max-height:200px;border-radius:4px">`;
@@ -530,13 +897,11 @@ async function showHistDetail(id) {
   document.getElementById('hist-params').textContent =
     'Params: ' + (rec.input_params||'{}') + '\nOverrides: ' + (rec.node_overrides||'{}');
 
-  // Output images
   const outHtml = Array.from({length: rec.output_count||0}, (_,i) =>
     `<img src="/lab/images/output/${id}/${i}.png" class="result-img" style="margin-bottom:6px">`
   ).join('') || '<div class="placeholder">Sem imagens de saída</div>';
   document.getElementById('hist-output-imgs').innerHTML = outHtml;
 
-  // Metrics
   document.getElementById('hist-metrics').innerHTML = [
     {l:'Exec', v:rec.execution_ms+'ms'},
     {l:'Upload', v:rec.upload_ms+'ms'},
@@ -546,7 +911,6 @@ async function showHistDetail(id) {
     {l:'GPU', v:rec.gpu_model||'-'},
   ].map(m=>`<div class="metric-card"><div class="metric-label">${m.l}</div><div class="metric-value" style="font-size:16px">${m.v}</div></div>`).join('');
 
-  // Eval form
   document.getElementById('hist-eval-form').innerHTML = `
     <div class="eval-form">
       <h4>Avaliação #${id}${rec.eval_score ? ' — atual: '+'★'.repeat(rec.eval_score) : ''}</h4>
@@ -575,7 +939,7 @@ async function submitHistEval(id) {
   loadHistory();
 }
 
-// ── Compare ───────────────────────────────────────────────────────────────────
+// ── COMPARE ───────────────────────────────────────────────────────────────────
 async function loadCompare() {
   const a = document.getElementById('cmp-a').value;
   const b = document.getElementById('cmp-b').value;
@@ -610,7 +974,7 @@ function renderComparePanel(side, rec) {
     ${rec.eval_notes ? `<p style="margin-top:8px;font-size:12px;color:#666">${rec.eval_notes}</p>` : ''}`;
 }
 
-// ── Benchmark ─────────────────────────────────────────────────────────────────
+// ── BENCHMARK ─────────────────────────────────────────────────────────────────
 async function loadBenchmark() {
   const data = await fetch('/api/benchmark').then(x=>x.json()).catch(()=>({}));
   renderBenchTable('bench-cap-wrap', data.by_capability||[], ['capability','total','successes','success_rate','avg_exec_ms','avg_total_ms','avg_vram_mb','avg_score','last_run']);
@@ -629,7 +993,83 @@ function renderBenchTable(id, rows, cols) {
   document.getElementById(id).innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-// ── Catalog ───────────────────────────────────────────────────────────────────
+// ── LOGS ──────────────────────────────────────────────────────────────────────
+async function loadLogs() {
+  const data = await fetch('/api/logs').then(x=>x.json()).catch(()=>({files:[],available:false}));
+  const sel = document.getElementById('log-file-select');
+  const current = sel.value;
+  if (!data.available || !data.files.length) {
+    sel.innerHTML = '<option value="">Nenhum log disponível</option>';
+    document.getElementById('log-viewer').innerHTML = '<div class="log-empty">Volume não montado ou nenhum log encontrado.<br><small style="color:#333">Configure RUNPOD_VOLUME_PATH para acessar os logs.</small></div>';
+    document.getElementById('log-meta').textContent = data.log_dir ? `Diretório: ${data.log_dir}` : '';
+    return;
+  }
+  sel.innerHTML = '<option value="">Selecionar arquivo de log...</option>' +
+    data.files.map(f => `<option value="${f}"${f===current?' selected':''}>${f}</option>`).join('');
+  if (current && data.files.includes(current)) fetchLogContent();
+  else if (data.files.length) {
+    sel.value = data.files[data.files.length - 1]; // default: most recent
+    fetchLogContent();
+  }
+}
+
+async function fetchLogContent() {
+  const name = document.getElementById('log-file-select').value;
+  const lines = document.getElementById('log-lines-select').value;
+  const viewer = document.getElementById('log-viewer');
+  const meta = document.getElementById('log-meta');
+
+  if (!name) {
+    viewer.innerHTML = '<div class="log-empty">Selecione um arquivo de log acima.</div>';
+    return;
+  }
+
+  const data = await fetch(`/api/logs/${name}?lines=${lines}`).then(x=>x.json()).catch(e=>({content:'Erro: '+e,available:false}));
+
+  if (!data.available && !data.content) {
+    viewer.innerHTML = `<div class="log-empty">Arquivo não encontrado: ${name}</div>`;
+    return;
+  }
+
+  // Colorize log lines
+  const html = (data.content || '').split('\n').map(line => {
+    if (/error|erro|exception|traceback|critical/i.test(line)) return `<span class="log-err">${esc(line)}</span>`;
+    if (/warn|aviso/i.test(line)) return `<span class="log-warn">${esc(line)}</span>`;
+    return esc(line);
+  }).join('\n');
+
+  viewer.innerHTML = html || '<div class="log-empty">Arquivo vazio.</div>';
+  meta.textContent = `${data.line_count||0} linhas totais · exibindo últimas ${data.showing||0}`;
+
+  if (_logAutoOn) scrollLogToBottom();
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function scrollLogToBottom() {
+  const v = document.getElementById('log-viewer');
+  v.scrollTop = v.scrollHeight;
+}
+
+function toggleLogAuto() {
+  _logAutoOn = !_logAutoOn;
+  const badge = document.getElementById('log-auto-badge');
+  const btn   = document.getElementById('log-auto-btn');
+  if (_logAutoOn) {
+    badge.textContent = 'AUTO ON'; badge.className = 'auto-badge';
+    btn.textContent = '⏸ Parar auto-refresh';
+    _logTimer = setInterval(fetchLogContent, 5000);
+    fetchLogContent();
+  } else {
+    badge.textContent = 'AUTO OFF'; badge.className = 'auto-badge off';
+    btn.textContent = '▶ Auto-refresh (5s)';
+    if (_logTimer) clearInterval(_logTimer);
+  }
+}
+
+// ── CATALOG ───────────────────────────────────────────────────────────────────
 let _catalogLoaded = {};
 async function loadCatalog(which) {
   if (_catalogLoaded[which]) return;
@@ -650,9 +1090,7 @@ async function loadCatalog(which) {
         <h3>${m.name||m.id} <span style="font-size:11px;color:#555">v${m.version||'?'}</span></h3>
         <p>${m.description||''}</p>
         <div class="model-meta">
-          ${status}
-          ${preferredBadge}
-          ${authBadge}
+          ${status}${preferredBadge}${authBadge}
           <span class="badge badge-gray">${m.vendor||'?'}</span>
           ${licenseBadge}
           <span class="badge badge-gray">${m.category||'?'}</span>
@@ -721,6 +1159,11 @@ async function clearCache(key) {
   _catalogLoaded.cache = false;
   loadCatalog('cache');
 }
+
+// Populate routes map from API for dashboard pills
+fetch('/api/capabilities').then(x=>x.json()).then(d => {
+  _CAPABILITY_ROUTES_JS = d.routes || {};
+}).catch(()=>{});
 </script>
 </body>
 </html>"""
@@ -731,15 +1174,80 @@ async def index():
     return _HTML
 
 
+# ── API: Status (Dashboard) ───────────────────────────────────────────────────
+
+@app.get("/api/status")
+async def api_status():
+    rt = _rt()
+    health = await full_health(rt._config)
+    now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+    uptime = int((now - _BOOT_TIME).total_seconds())
+    return {
+        **health,
+        "runtime_version": rt._config.version,
+        "environment": rt._config.environment,
+        "boot_time": _BOOT_TIME.isoformat(),
+        "uptime_seconds": uptime,
+        "workflows_available": [str(p).replace("\\", "/") for p in rt._wm.list_available()],
+        "capabilities": sorted(_CAPABILITY_ROUTES.keys()),
+        "active_models": rt._active_models,
+    }
+
+
+# ── API: System workflows (Dashboard quick actions) ───────────────────────────
+
+@app.post("/api/system/{workflow_id}")
+async def api_system_run(workflow_id: str):
+    if workflow_id not in ("echo", "health", "image-echo"):
+        raise HTTPException(400, f"Workflow de sistema inválido: '{workflow_id}'")
+    rt = _rt()
+    return await rt.handle({"input": {"workflow_id": workflow_id, "input": {}}})
+
+
+# ── API: Logs ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/logs")
+def api_logs_list():
+    rt = _rt()
+    log_dir = rt._config.logs_dir
+    if not log_dir.exists():
+        return {"files": [], "log_dir": str(log_dir), "available": False}
+    files = sorted(f.name for f in log_dir.iterdir() if f.is_file() and f.suffix == ".log")
+    return {"files": files, "log_dir": str(log_dir), "available": True}
+
+
+@app.get("/api/logs/{name}")
+def api_logs_content(name: str, lines: int = 200):
+    if not name.endswith(".log") or "/" in name or "\\" in name or ".." in name:
+        raise HTTPException(400, "Nome de arquivo inválido")
+    if lines < 1 or lines > 5000:
+        lines = 200
+    rt = _rt()
+    log_path = rt._config.logs_dir / name
+    if not log_path.exists():
+        return {"name": name, "content": "", "available": False, "line_count": 0, "showing": 0}
+    try:
+        content = log_path.read_text(encoding="utf-8", errors="replace")
+        all_lines = content.splitlines()
+        last_lines = all_lines[-lines:]
+        return {
+            "name": name,
+            "content": "\n".join(last_lines),
+            "available": True,
+            "line_count": len(all_lines),
+            "showing": len(last_lines),
+        }
+    except Exception as exc:
+        return {"name": name, "content": f"Erro ao ler: {exc}", "available": True, "line_count": 0, "showing": 0}
+
+
 # ── API: Capabilities ─────────────────────────────────────────────────────────
 
 @app.get("/api/capabilities")
 async def api_capabilities():
     rt = _rt()
     available = rt._wm.list_available()
-    all_caps = sorted(
-        list(_CAPABILITY_ROUTES.keys()) + ["echo", "health", "image-echo"]
-    )
+    all_caps = sorted(list(_CAPABILITY_ROUTES.keys()) + ["echo", "health", "image-echo"])
     return {
         "capabilities": all_caps,
         "workflows_available": [str(p).replace("\\", "/") for p in available],
@@ -759,18 +1267,14 @@ async def api_run(
 ):
     rt = _rt()
     lb = _lb()
-
     try:
         overrides = json.loads(node_overrides)
     except json.JSONDecodeError:
         overrides = {}
 
-    # Resolve workflow
     resolved = _CAPABILITY_ROUTES.get(capability, capability)
 
-    # Cache check
     input_hash = lb.save_input_image(image_b64) if image_b64 else None
-    cached_result = None
     if use_cache == "1":
         key = lb.cache_key(resolved, input_hash, overrides)
         cached_json = lb.cache_get(key)
@@ -780,15 +1284,9 @@ async def api_run(
             cached_result["exec_id"] = None
             return JSONResponse(cached_result)
 
-    job = {
-        "input": {
-            "workflow_id": capability,
-            "input": {"image": image_b64, "node_overrides": overrides},
-        }
-    }
+    job = {"input": {"workflow_id": capability, "input": {"image": image_b64, "node_overrides": overrides}}}
     result = await rt.handle(job)
 
-    # Record
     exec_id = lb.record(
         capability=capability,
         workflow_id=resolved,
@@ -800,7 +1298,6 @@ async def api_run(
     result["exec_id"] = exec_id
     result["cached"] = False
 
-    # Cache store
     if use_cache == "1" and result.get("status") == "completed":
         key = lb.cache_key(resolved, input_hash, overrides)
         lb.cache_set(key, capability, json.dumps(result))
