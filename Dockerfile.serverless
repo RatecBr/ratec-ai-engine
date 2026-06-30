@@ -1,5 +1,7 @@
 FROM python:3.11-slim
 
+FROM python:3.11-slim
+
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -9,8 +11,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY requirements-handler.txt .
 RUN pip install --no-cache-dir -r requirements-handler.txt
 
-# Copia apenas o handler — sem src/, sem __pycache__ de outros módulos
+# Copia o handler e dependências (sem src/, sem __pycache__)
 COPY handler.py .
+
+# Copia metadados de build, se existirem (gerados via GitHub Actions)
+COPY build_info.json* .
 
 # -u: saída unbuffered — obrigatório para logging em tempo real no RunPod
 CMD ["python3", "-u", "handler.py"]

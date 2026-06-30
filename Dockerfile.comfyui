@@ -2,7 +2,7 @@
 # Imagem de produção para execução de workflows no RunPod.
 # Modelos NÃO são incluídos na imagem — carregados via Network Volume.
 
-FROM runpod/pytorch:2.3.0-py3.11-cuda12.1.1-devel-ubuntu22.04
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -30,6 +30,8 @@ RUN pip install --no-cache-dir -r /handler/requirements-handler.txt
 
 COPY handler.py       /handler/handler.py
 COPY workflows/       /handler/workflows/
+COPY runtime/         /handler/runtime/
+COPY scripts/         /handler/scripts/
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 COPY scripts/start.sh /start.sh

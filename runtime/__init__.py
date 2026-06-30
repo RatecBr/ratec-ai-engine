@@ -58,6 +58,10 @@ class Runtime:
     Novos workflows não requerem alterações aqui — basta adicionar comfyui.json + manifest.yaml.
     """
 
+    @property
+    def boot_time(self) -> datetime:
+        return _BOOT_TIME
+
     def __init__(
         self,
         config: RuntimeConfig,
@@ -175,7 +179,9 @@ class Runtime:
                 except Exception as exc:
                     raise ValueError(f"'image' não é base64 válido: {exc}") from exc
 
-                filename, upload_ms = await upload_image(client, self._config, image_data)
+                filename, upload_ms = await upload_image(
+                    client, self._config, image_data, image_type="temp"
+                )
                 node_overrides.setdefault("1", {})["image"] = filename
 
             if node_overrides:
@@ -251,7 +257,6 @@ class Runtime:
     def _print_startup(self) -> None:
         gpu = get_gpu()
         available = self._wm.list_available()
-        print(f"[ratec] RATEC AI Runtime v{VERSION}", flush=True)
         print(f"[ratec] Python {platform.python_version()} | Host: {socket.gethostname()}", flush=True)
         print(f"[ratec] GPU: {gpu.model or 'não detectada'} | VRAM: {gpu.vram_total_mb} MB", flush=True)
         print(f"[ratec] ComfyUI: {self._config.comfyui_url}", flush=True)

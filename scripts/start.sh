@@ -6,7 +6,7 @@ set -euo pipefail
 VOLUME="${RUNPOD_VOLUME_PATH:-/runpod-volume}"
 COMFYUI="/comfyui"
 COMFYUI_PORT="${COMFYUI_PORT:-8188}"
-COMFYUI_HOST="127.0.0.1"
+COMFYUI_HOST="0.0.0.0"
 COMFYUI_READY_TIMEOUT="${COMFYUI_READY_TIMEOUT:-120}"
 HANDLER_DIR="/handler"
 
@@ -50,11 +50,11 @@ echo "[ratec] Symlinks configurados"
 # Sempre executa no cold start: downloads são pulados se modelos já existem no
 # volume; custom nodes (efêmeros no container) são re-instalados se ausentes.
 echo "[ratec] Executando install_models.py..."
+INSTALL_EXIT=0
 RUNPOD_VOLUME_PATH="${VOLUME}" \
 COMFYUI_PATH="${COMFYUI}" \
-python3 "${HANDLER_DIR}/scripts/install_models.py" \
-    >> "${VOLUME}/logs/install_models.log" 2>&1
-INSTALL_EXIT=$?
+timeout 300 python3 "${HANDLER_DIR}/scripts/install_models.py" \
+    >> "${VOLUME}/logs/install_models.log" 2>&1 || INSTALL_EXIT=$?
 if [ "${INSTALL_EXIT}" -eq 0 ]; then
     echo "[ratec] install_models.py concluído com sucesso"
 else

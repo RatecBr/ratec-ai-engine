@@ -32,6 +32,9 @@ from fastapi import FastAPI, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from dotenv import load_dotenv
+load_dotenv()
+
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
 
@@ -40,7 +43,17 @@ from runtime.health import full_health
 from runtime.lab import Lab
 from playground.catalog import list_capability_models, list_models
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="RATEC AI Engine — Control Panel", version="2.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Permite o Vercel fazer requisições para a máquina local
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── Inicialização ─────────────────────────────────────────────────────────────
 
@@ -53,14 +66,46 @@ _LOG_ALLOWLIST = {"comfyui.log", "install_models.log"}
 
 @app.on_event("startup")
 async def startup():
-    global _runtime, _lab
-    _runtime = Runtime.initialize()
+    global _runtime, _lab, _remote_mode, _runpod_key, _runpod_endpoint
+    _runpod_key = os.environ.get("RUNPOD_API_KEY")
+    _runpod_endpoint = os.environ.get("RUNPOD_ENDPOINT_ID")
+    _remote_mode = bool(_runpod_key and _runpod_endpoint)
+
+    if not _remote_mode:
+        _runtime = Runtime.initialize()
+    else:
+        print(f"[playground] Modo NUVEM ativado. Conectando ao RunPod: {_runpod_endpoint}", flush=True)
+
     _lab = Lab(_lab_dir)
     images_dir = _lab_dir / "images"
     (images_dir / "input").mkdir(parents=True, exist_ok=True)
     (images_dir / "output").mkdir(parents=True, exist_ok=True)
     app.mount("/lab/images", StaticFiles(directory=str(images_dir)), name="lab_images")
-    print(f"[playground] AI Lab iniciado → {_lab_dir.resolve()}", flush=True)
+    print(f"[playground] AI Lab iniciado -> {_lab_dir.resolve()}", flush=True)
+
+import httpx
+
+async def _remote_runsync(workflow_id: str, input_data: dict = {}, timeout_s: float = 300.0) -> dict:
+    if _runpod_endpoint.startswith("pod:"):
+        pod_id = _runpod_endpoint.split("pod:")[1]
+        url = f"https://{pod_id}-8000.proxy.runpod.net/runsync"
+    else:
+        url = f"https://api.runpod.ai/v2/{_runpod_endpoint}/runsync"
+        
+    headers = {
+        "Authorization": f"Bearer {_runpod_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {"input": {"workflow_id": workflow_id, "input": input_data}}
+    
+    async with httpx.AsyncClient(timeout=timeout_s) as client:
+        r = await client.post(url, headers=headers, json=payload)
+        r.raise_for_status()
+        data = r.json()
+        if data.get("status") == "COMPLETED":
+            return data.get("output", {})
+        raise RuntimeError(f"RunPod pendente/falhou: {data}")
+
 
 
 def _rt() -> Runtime:
@@ -313,8 +358,8 @@ tr.selected td{background:#0d1a0d}
     </div>
     <div class="status-card loading" id="sc-volume">
       <div class="sc-label">Network Volume</div>
-      <div class="sc-value" id="sc-vol-val">—</div>
-      <div class="sc-sub" id="sc-vol-sub">Verificando...</div>
+      <div class="sc-value" id="sc-volume-val">—</div>
+      <div class="sc-sub" id="sc-volume-sub">Verificando...</div>
       <span class="sc-icon">💾</span>
     </div>
   </div>
@@ -573,9 +618,12 @@ function setCard(id, status, val, sub) {
 
 async function loadDashboard() {
   const data = await fetch('/api/status').then(x=>x.json()).catch(e => ({_error: String(e)}));
-  if (data._error) {
-    setCard('sc-runtime','fail','Erro', data._error);
-    document.getElementById('hdr-online').className = 'fail';
+  if (data._error || data.error) {
+    setCard('sc-runtime','warn','Aguardando RunPod...', data._error || data.error);
+    setCard('sc-comfyui','warn','● Inicializando', 'Nuvem acordando');
+    setCard('sc-gpu','warn','● Aguardando', '-');
+    setCard('sc-volume','warn','● Aguardando', '-');
+    document.getElementById('hdr-online').className = 'warn';
     return;
   }
   renderDashboard(data);
@@ -1178,6 +1226,20 @@ async def index():
 
 @app.get("/api/status")
 async def api_status():
+    if _remote_mode:
+        try:
+            # Check with a fast timeout so UI doesn't hang on cold boot
+            res = await _remote_runsync("health", timeout_s=10.0)
+            if "error" in res:
+                return {"error": res["error"], "worker_ready": False}
+            return {
+                **res.get("result", {}),
+                "environment": "cloud",
+                "runpod_endpoint": _runpod_endpoint
+            }
+        except Exception as e:
+            return {"error": "Servidor RunPod está inicializando (Cold Start) ou demorando para responder...", "worker_ready": False}
+
     rt = _rt()
     health = await full_health(rt._config)
     now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
@@ -1200,6 +1262,12 @@ async def api_status():
 async def api_system_run(workflow_id: str):
     if workflow_id not in ("echo", "health", "image-echo"):
         raise HTTPException(400, f"Workflow de sistema inválido: '{workflow_id}'")
+    if _remote_mode:
+        try:
+            return await _remote_runsync(workflow_id, {})
+        except Exception as e:
+            return JSONResponse(status_code=400, content={"error": f"Erro na Nuvem: {str(e)}"})
+
     rt = _rt()
     return await rt.handle({"input": {"workflow_id": workflow_id, "input": {}}})
 
@@ -1245,9 +1313,17 @@ def api_logs_content(name: str, lines: int = 200):
 
 @app.get("/api/capabilities")
 async def api_capabilities():
+    all_caps = sorted(list(_CAPABILITY_ROUTES.keys()) + ["echo", "health", "image-echo"])
+    if _remote_mode:
+        return {
+            "capabilities": all_caps,
+            "workflows_available": [],
+            "routes": {},
+            "active_models": {}
+        }
+
     rt = _rt()
     available = rt._wm.list_available()
-    all_caps = sorted(list(_CAPABILITY_ROUTES.keys()) + ["echo", "health", "image-echo"])
     return {
         "capabilities": all_caps,
         "workflows_available": [str(p).replace("\\", "/") for p in available],
@@ -1265,14 +1341,13 @@ async def api_run(
     node_overrides: str = Form("{}"),
     use_cache: str = Form("1"),
 ):
-    rt = _rt()
     lb = _lb()
     try:
         overrides = json.loads(node_overrides)
     except json.JSONDecodeError:
         overrides = {}
 
-    resolved = _CAPABILITY_ROUTES.get(capability, capability)
+    resolved = _CAPABILITY_ROUTES.get(capability, capability) if not _remote_mode else capability
 
     input_hash = lb.save_input_image(image_b64) if image_b64 else None
     if use_cache == "1":
@@ -1284,8 +1359,18 @@ async def api_run(
             cached_result["exec_id"] = None
             return JSONResponse(cached_result)
 
-    job = {"input": {"workflow_id": capability, "input": {"image": image_b64, "node_overrides": overrides}}}
-    result = await rt.handle(job)
+    if _remote_mode:
+        try:
+            result = await _remote_runsync(capability, {"image": image_b64, "node_overrides": overrides})
+        except Exception as e:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Erro na Nuvem (Servidor pode estar dormindo): {str(e)}"}
+            )
+    else:
+        rt = _rt()
+        job = {"input": {"workflow_id": capability, "input": {"image": image_b64, "node_overrides": overrides}}}
+        result = await rt.handle(job)
 
     exec_id = lb.record(
         capability=capability,
