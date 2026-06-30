@@ -8,6 +8,7 @@ COMFYUI="/comfyui"
 COMFYUI_PORT="${COMFYUI_PORT:-8188}"
 COMFYUI_HOST="127.0.0.1"
 COMFYUI_READY_TIMEOUT="${COMFYUI_READY_TIMEOUT:-120}"
+HANDLER_DIR="/handler"
 
 echo "[ratec] ============================================"
 echo "[ratec] RATEC AI ENGINE — AI Runtime"
@@ -18,6 +19,7 @@ echo "[ratec] ============================================"
 # ── Estrutura de diretórios no volume persistente ─────────────────────────────
 echo "[ratec] Preparando estrutura de diretórios..."
 for dir in \
+    models/BRIA \
     models/checkpoints \
     models/clip \
     models/clip_vision \
@@ -44,11 +46,28 @@ ln -sfn "${VOLUME}/input"    "${COMFYUI}/input"
 ln -sfn "${VOLUME}/temp"     "${COMFYUI}/temp"
 echo "[ratec] Symlinks configurados"
 
+# ── Instalar/verificar modelos e custom nodes ─────────────────────────────────
+# Sempre executa no cold start: downloads são pulados se modelos já existem no
+# volume; custom nodes (efêmeros no container) são re-instalados se ausentes.
+echo "[ratec] Executando install_models.py..."
+RUNPOD_VOLUME_PATH="${VOLUME}" \
+COMFYUI_PATH="${COMFYUI}" \
+python3 "${HANDLER_DIR}/scripts/install_models.py" \
+    >> "${VOLUME}/logs/install_models.log" 2>&1
+INSTALL_EXIT=$?
+if [ "${INSTALL_EXIT}" -eq 0 ]; then
+    echo "[ratec] install_models.py concluído com sucesso"
+else
+    echo "[ratec] AVISO: install_models.py terminou com código ${INSTALL_EXIT}"
+    echo "[ratec] Log disponível em: ${VOLUME}/logs/install_models.log"
+    echo "[ratec] Continuando — usando comfyui.json padrão como fallback"
+fi
+
 # ── Iniciar ComfyUI ───────────────────────────────────────────────────────────
 echo "[ratec] Iniciando ComfyUI..."
 cd "${COMFYUI}"
 python3 main.py \
-    --listen 0.0.0.0 \
+    --listen "${COMFYUI_HOST}" \
     --port "${COMFYUI_PORT}" \
     --disable-auto-launch \
     --preview-method none \
