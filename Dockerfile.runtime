@@ -29,6 +29,9 @@ RUN git clone --depth=1 \
 COPY requirements-handler.txt /handler/requirements-handler.txt
 RUN pip install --no-cache-dir -r /handler/requirements-handler.txt
 
+# Copia metadados de build, se existirem
+COPY build_info.json* /handler/
+
 COPY handler.py    /handler/handler.py
 COPY runtime/      /handler/runtime/
 COPY workflows/    /handler/workflows/

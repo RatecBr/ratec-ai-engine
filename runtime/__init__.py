@@ -58,6 +58,10 @@ class Runtime:
     Novos workflows não requerem alterações aqui — basta adicionar comfyui.json + manifest.yaml.
     """
 
+    @property
+    def boot_time(self) -> datetime:
+        return _BOOT_TIME
+
     def __init__(
         self,
         config: RuntimeConfig,
@@ -253,7 +257,23 @@ class Runtime:
     def _print_startup(self) -> None:
         gpu = get_gpu()
         available = self._wm.list_available()
+        
+        # Load build info if available
+        import os
+        import json
+        build_info = {}
+        if os.path.exists("build_info.json"):
+            try:
+                with open("build_info.json", "r") as f:
+                    build_info = json.load(f)
+            except:
+                pass
+                
         print(f"[ratec] RATEC AI Runtime v{VERSION}", flush=True)
+        if build_info:
+            print(f"[ratec] Commit: {build_info.get('git_commit', 'unknown')} | Branch: {build_info.get('branch', 'unknown')}", flush=True)
+            print(f"[ratec] Build Date: {build_info.get('build_date', 'unknown')}", flush=True)
+            
         print(f"[ratec] Python {platform.python_version()} | Host: {socket.gethostname()}", flush=True)
         print(f"[ratec] GPU: {gpu.model or 'não detectada'} | VRAM: {gpu.vram_total_mb} MB", flush=True)
         print(f"[ratec] ComfyUI: {self._config.comfyui_url}", flush=True)

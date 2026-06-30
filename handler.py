@@ -4,11 +4,27 @@ Ponto de entrada do ambiente Serverless.
 """
 from __future__ import annotations
 
+import os
+import json
 import runpod
 from runtime import Runtime
 
-_runtime = Runtime.initialize()
+# Load and print build info
+build_info = {}
+if os.path.exists("build_info.json"):
+    try:
+        with open("build_info.json", "r") as f:
+            build_info = json.load(f)
+        print("=== RATEC AI ENGINE SERVERLESS START ===", flush=True)
+        print(f"Version: {build_info.get('version', 'unknown')}", flush=True)
+        print(f"Git Commit: {build_info.get('git_commit', 'unknown')}", flush=True)
+        print(f"Branch: {build_info.get('branch', 'unknown')}", flush=True)
+        print(f"Build Date: {build_info.get('build_date', 'unknown')}", flush=True)
+        print("========================================", flush=True)
+    except Exception as e:
+        print(f"Failed to load build_info.json: {e}", flush=True)
 
+_runtime = Runtime.initialize()
 
 async def handler(job: dict) -> dict:
     """
@@ -26,7 +42,19 @@ async def handler(job: dict) -> dict:
         try:
             # Em vez de carregar FastAPI, batemos direto nos serviços limpos!
             # Isso respeita a regra do Dockerfile.serverless (sem FastAPI/Pydantic)
-            if path == "/admin/health":
+            if path == "/admin/version":
+                return {
+                    "success": True, 
+                    "data": {
+                        "version": build_info.get("version", "unknown"),
+                        "git_commit": build_info.get("git_commit", "unknown"),
+                        "branch": build_info.get("branch", "unknown"),
+                        "build_date": build_info.get("build_date", "unknown"),
+                        "worker_started": _runtime.boot_time.isoformat() if hasattr(_runtime, "boot_time") else "unknown"
+                    }
+                }
+                
+            elif path == "/admin/health":
                 from src.application.admin import health_service
                 return {"success": True, "data": health_service.get_platform_health()}
             
