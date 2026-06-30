@@ -275,3 +275,21 @@ class ModelResolver:
 - `validate(manifest)` â€” validaÃ§Ã£o estÃ¡tica
 - `validate_runtime_compatibility(manifest, available_providers, available_vram_mb)` â€” validaÃ§Ã£o de runtime
 - `validate_or_raise(manifest)` â€” levanta `ValueError` se invÃ¡lido
+
+---
+
+## Armazenamento do Console do RATEC AI ENGINE
+
+**Decisão:** O Console (AI Playground) será completamente independente dos aplicativos consumidores e utilizará o Network Volume do RunPod para arquivos temporários.
+
+**Motivo:** Garantir a independência entre produtos, isolamento de dados e prover uma ferramenta oficial de testes/demonstração funcional sem dependência de Firebase, Supabase ou backends externos.
+
+**Fluxo de arquivos no Console:**
+1. Upload da imagem via Console para a API (Base64).
+2. O Handler (na nuvem) armazena a imagem em `/runpod-volume/temp/`.
+3. Executa a Capability.
+4. Salva o resultado em `/runpod-volume/outputs/`.
+5. A imagem é retornada em Base64 para exibição no Console.
+6. Arquivos temporários podem ser limpos.
+
+**Aplicativos consumidores (ex: GoodLook):** Permanecem responsáveis pelo próprio armazenamento (ex: Firebase Storage), usando a API do Engine apenas para enviar URLs de entrada e receber URLs/Base64 processadas, sem utilizar o armazenamento temporário do Console para longo prazo.

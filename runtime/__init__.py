@@ -175,7 +175,9 @@ class Runtime:
                 except Exception as exc:
                     raise ValueError(f"'image' não é base64 válido: {exc}") from exc
 
-                filename, upload_ms = await upload_image(client, self._config, image_data)
+                filename, upload_ms = await upload_image(
+                    client, self._config, image_data, image_type="temp"
+                )
                 node_overrides.setdefault("1", {})["image"] = filename
 
             if node_overrides:

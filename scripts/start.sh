@@ -50,11 +50,11 @@ echo "[ratec] Symlinks configurados"
 # Sempre executa no cold start: downloads são pulados se modelos já existem no
 # volume; custom nodes (efêmeros no container) são re-instalados se ausentes.
 echo "[ratec] Executando install_models.py..."
+INSTALL_EXIT=0
 RUNPOD_VOLUME_PATH="${VOLUME}" \
 COMFYUI_PATH="${COMFYUI}" \
 timeout 300 python3 "${HANDLER_DIR}/scripts/install_models.py" \
-    >> "${VOLUME}/logs/install_models.log" 2>&1
-INSTALL_EXIT=$?
+    >> "${VOLUME}/logs/install_models.log" 2>&1 || INSTALL_EXIT=$?
 if [ "${INSTALL_EXIT}" -eq 0 ]; then
     echo "[ratec] install_models.py concluído com sucesso"
 else
