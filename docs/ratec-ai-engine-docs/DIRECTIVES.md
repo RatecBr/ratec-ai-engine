@@ -169,6 +169,22 @@ Se essas perguntas não tiverem respostas claras, a implementação deve ser rea
 
 ---
 
+## 12. Avaliação de Novas Dependências Tecnológicas
+
+Antes de adicionar qualquer nova dependência tecnológica à plataforma, responder obrigatoriamente:
+
+- O recurso já pode ser implementado utilizando o Runtime existente?
+- Existe um modelo local equivalente e estável?
+- A nova dependência reduz ou aumenta a complexidade geral?
+- Ela será utilizada por vários produtos da RATEC?
+- Ela realmente agrega valor à plataforma?
+
+Se a resposta for negativa para a maioria dessas perguntas, a dependência não deve ser incorporada.
+
+**Estratégia padrão:** sempre que existir uma alternativa local estável, ela deve ser priorizada sobre uma API externa.
+
+---
+
 ## Referência de implementação
 
 | Ação | Como fazer |

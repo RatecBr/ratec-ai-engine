@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## Unreleased — Release 1.0.1-alpha: Consolidação da Infraestrutura
+
+> **Objetivo:** Definir oficialmente a infraestrutura tecnológica da plataforma e preparar o ambiente para os testes funcionais no AI Playground.
+
+**Decisões de infraestrutura:**
+- Firebase permanece como backend principal (Authentication, Firestore, Storage) — sem migração
+- AI Runtime responsável exclusivamente pela execução de modelos — nunca acessa Firebase diretamente
+- Modelos locais como estratégia padrão; APIs externas de geração de imagens proibidas nesta fase
+- APIs externas permitidas apenas para tarefas textuais: OpenAI, Claude, Gemini
+- Modelos prioritários da plataforma: BRIA RMBG, RealESRGAN, FLUX, ControlNet, IPAdapter, Whisper, PaddleOCR
+
+**Model Installation Manager:**
+- `scripts/install_models.py` — instala BRIA RMBG-1.4 e RealESRGAN x4plus no Network Volume
+- Verifica montagem do volume, faz download, instala custom nodes, executa health check
+- Gera relatório JSON com status de cada modelo e resultado dos health checks
+- Salva relatório em `/runpod-volume/logs/install_report_{ts}.json`
+
+**Correções:**
+- `runtime/bootstrap.py` — adicionado `models/BRIA` aos diretórios do Network Volume
+- `runtime/models/catalog/bria-rmbg/manifest.yaml` — URL de download corrigida para arquivo direto (`resolve/main/model.pth`); adicionado `requires_hf_token: true`
+
+**Nova diretriz permanente:**
+- Diretriz #12 — Avaliação de Novas Dependências Tecnológicas: 5 perguntas antes de incorporar qualquer nova dependência
+
+---
+
 ## Unreleased — Release 1.0.0-alpha: Fase de Validação da Plataforma
 
 > **Objetivo:** Validar o funcionamento de ponta a ponta antes da integração com o GoodLook.  
