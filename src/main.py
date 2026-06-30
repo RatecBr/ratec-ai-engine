@@ -27,6 +27,28 @@ app.include_router(pipelines.router, prefix="/v1")
 app.include_router(providers.router, prefix="/v1")
 app.include_router(models.router, prefix="/v1")
 
+# Admin API
+from src.api.admin import (
+    health as admin_health,
+    runtime as admin_runtime,
+    system as admin_system,
+    gpu as admin_gpu,
+    storage as admin_storage,
+    logs as admin_logs,
+    metrics as admin_metrics,
+    models as admin_models,
+    workflows as admin_workflows
+)
+
+app.include_router(admin_health.router, prefix="/admin")
+app.include_router(admin_runtime.router, prefix="/admin")
+app.include_router(admin_system.router, prefix="/admin")
+app.include_router(admin_gpu.router, prefix="/admin")
+app.include_router(admin_storage.router, prefix="/admin")
+app.include_router(admin_logs.router, prefix="/admin")
+app.include_router(admin_metrics.router, prefix="/admin")
+app.include_router(admin_models.router, prefix="/admin")
+app.include_router(admin_workflows.router, prefix="/admin")
 
 @app.get("/", include_in_schema=False)
 async def root() -> dict:

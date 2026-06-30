@@ -43,7 +43,17 @@ from runtime.health import full_health
 from runtime.lab import Lab
 from playground.catalog import list_capability_models, list_models
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="RATEC AI Engine — Control Panel", version="2.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Permite o Vercel fazer requisições para a máquina local
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── Inicialização ─────────────────────────────────────────────────────────────
 
@@ -71,12 +81,17 @@ async def startup():
     (images_dir / "input").mkdir(parents=True, exist_ok=True)
     (images_dir / "output").mkdir(parents=True, exist_ok=True)
     app.mount("/lab/images", StaticFiles(directory=str(images_dir)), name="lab_images")
-    print(f"[playground] AI Lab iniciado → {_lab_dir.resolve()}", flush=True)
+    print(f"[playground] AI Lab iniciado -> {_lab_dir.resolve()}", flush=True)
 
 import httpx
 
 async def _remote_runsync(workflow_id: str, input_data: dict = {}, timeout_s: float = 300.0) -> dict:
-    url = f"https://api.runpod.ai/v2/{_runpod_endpoint}/runsync"
+    if _runpod_endpoint.startswith("pod:"):
+        pod_id = _runpod_endpoint.split("pod:")[1]
+        url = f"https://{pod_id}-8000.proxy.runpod.net/runsync"
+    else:
+        url = f"https://api.runpod.ai/v2/{_runpod_endpoint}/runsync"
+        
     headers = {
         "Authorization": f"Bearer {_runpod_key}",
         "Content-Type": "application/json"
