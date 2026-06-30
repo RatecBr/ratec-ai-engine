@@ -37,7 +37,8 @@ from src.api.admin import (
     logs as admin_logs,
     metrics as admin_metrics,
     models as admin_models,
-    workflows as admin_workflows
+    workflows as admin_workflows,
+    version as admin_version
 )
 
 app.include_router(admin_health.router, prefix="/admin")
@@ -49,6 +50,7 @@ app.include_router(admin_logs.router, prefix="/admin")
 app.include_router(admin_metrics.router, prefix="/admin")
 app.include_router(admin_models.router, prefix="/admin")
 app.include_router(admin_workflows.router, prefix="/admin")
+app.include_router(admin_version.router, prefix="/admin")
 
 @app.get("/", include_in_schema=False)
 async def root() -> dict:

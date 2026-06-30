@@ -258,21 +258,18 @@ class Runtime:
         gpu = get_gpu()
         available = self._wm.list_available()
         
-        # Load build info if available
-        import os
-        import json
-        build_info = {}
-        if os.path.exists("build_info.json"):
-            try:
-                with open("build_info.json", "r") as f:
-                    build_info = json.load(f)
-            except:
-                pass
+        from src.application.admin.version_provider import version_provider
+        info = version_provider.build_info
                 
-        print(f"[ratec] RATEC AI Runtime v{VERSION}", flush=True)
-        if build_info:
-            print(f"[ratec] Commit: {build_info.get('git_commit', 'unknown')} | Branch: {build_info.get('branch', 'unknown')}", flush=True)
-            print(f"[ratec] Build Date: {build_info.get('build_date', 'unknown')}", flush=True)
+        print("=" * 40, flush=True)
+        print("RATEC AI ENGINE", flush=True)
+        print(f"Version: {info.get('engine_version')}", flush=True)
+        print(f"Commit: {info.get('git_short_commit')}", flush=True)
+        print(f"Branch: {info.get('git_branch')}", flush=True)
+        print(f"Docker: {info.get('docker_tag')}", flush=True)
+        print(f"Build: {info.get('build_date')}", flush=True)
+        print(f"Started: {_BOOT_TIME.isoformat()}", flush=True)
+        print("=" * 40, flush=True)
             
         print(f"[ratec] Python {platform.python_version()} | Host: {socket.gethostname()}", flush=True)
         print(f"[ratec] GPU: {gpu.model or 'não detectada'} | VRAM: {gpu.vram_total_mb} MB", flush=True)

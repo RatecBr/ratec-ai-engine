@@ -1,30 +1,28 @@
 """
 RATEC AI ENGINE — RunPod Serverless Handler
 Ponto de entrada do ambiente Serverless.
-"""
-from __future__ import annotations
-
 import os
 import json
 import runpod
 from runtime import Runtime
-
-# Load and print build info
-build_info = {}
-if os.path.exists("build_info.json"):
-    try:
-        with open("build_info.json", "r") as f:
-            build_info = json.load(f)
-        print("=== RATEC AI ENGINE SERVERLESS START ===", flush=True)
-        print(f"Version: {build_info.get('version', 'unknown')}", flush=True)
-        print(f"Git Commit: {build_info.get('git_commit', 'unknown')}", flush=True)
-        print(f"Branch: {build_info.get('branch', 'unknown')}", flush=True)
-        print(f"Build Date: {build_info.get('build_date', 'unknown')}", flush=True)
-        print("========================================", flush=True)
-    except Exception as e:
-        print(f"Failed to load build_info.json: {e}", flush=True)
+from src.application.admin.version_provider import version_provider
 
 _runtime = Runtime.initialize()
+
+# Print build info from provider
+try:
+    info = version_provider.build_info
+    print("=" * 40, flush=True)
+    print("RATEC AI ENGINE", flush=True)
+    print(f"Version: {info.get('engine_version')}", flush=True)
+    print(f"Commit: {info.get('git_short_commit')}", flush=True)
+    print(f"Branch: {info.get('git_branch')}", flush=True)
+    print(f"Docker: {info.get('docker_tag')}", flush=True)
+    print(f"Build: {info.get('build_date')}", flush=True)
+    print(f"Started: {_runtime.boot_time.isoformat()}", flush=True)
+    print("=" * 40, flush=True)
+except Exception as e:
+    print(f"Failed to print startup banner: {e}", flush=True)
 
 async def handler(job: dict) -> dict:
     """
@@ -43,15 +41,19 @@ async def handler(job: dict) -> dict:
             # Em vez de carregar FastAPI, batemos direto nos serviços limpos!
             # Isso respeita a regra do Dockerfile.serverless (sem FastAPI/Pydantic)
             if path == "/admin/version":
+                # Inject GPU metadata safely
+                gpu_model = "unknown"
+                try:
+                    from runtime.observability import get_gpu
+                    gpu_model = get_gpu().model
+                except:
+                    pass
                 return {
                     "success": True, 
-                    "data": {
-                        "version": build_info.get("version", "unknown"),
-                        "git_commit": build_info.get("git_commit", "unknown"),
-                        "branch": build_info.get("branch", "unknown"),
-                        "build_date": build_info.get("build_date", "unknown"),
-                        "worker_started": _runtime.boot_time.isoformat() if hasattr(_runtime, "boot_time") else "unknown"
-                    }
+                    "data": version_provider.get_version_info(
+                        boot_time=_runtime.boot_time,
+                        gpu_model=gpu_model
+                    )
                 }
                 
             elif path == "/admin/health":
