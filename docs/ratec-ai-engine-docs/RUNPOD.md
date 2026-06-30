@@ -75,11 +75,11 @@ Os symlinks são criados automaticamente pelo `scripts/start.sh` no boot de cada
 
 ## Imagem Docker
 
-A imagem `Dockerfile.runtime` contém:
-- Base: `runpod/pytorch:2.3.0-py3.11-cuda12.1.1-devel-ubuntu22.04`
+A imagem `Dockerfile.comfyui` contém:
+- Base: `runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04`
 - ComfyUI (git clone --depth=1)
 - ComfyUI-Manager
-- Handler RATEC (`runtime/`, `workflows/`, `handler.py`)
+- Handler RATEC (`runtime/`, `scripts/`, `workflows/`, `handler.py`)
 
 **Modelos não estão na imagem.** São carregados via Network Volume em runtime.
 
