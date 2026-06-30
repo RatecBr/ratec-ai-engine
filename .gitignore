@@ -34,3 +34,6 @@ htmlcov/
 
 # Ad-hoc debug/validation scripts na raiz (podem conter credenciais)
 /test_*.py
+
+# Dados de runtime do AI Lab (SQLite + imagens geradas localmente)
+lab_data/
