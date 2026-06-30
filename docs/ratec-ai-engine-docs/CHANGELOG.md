@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## Unreleased — Release 1.0.0-alpha: Fase de Validação da Plataforma
+
+> **Objetivo:** Validar o funcionamento de ponta a ponta antes da integração com o GoodLook.  
+> **Congelamento:** Nenhuma nova funcionalidade, abstração ou reorganização arquitetural.
+
+**Estado da plataforma (auditado 2026-06-29):**
+- 3 capabilities com `comfyui.json` prontas para validação: `image-identity`, `background-remove`, `image-upscale`
+- 6 capabilities planejadas com apenas `manifest.yaml` (aguardam próxima fase): beard, haircut, face-segmentation, makeup, virtual-try-on, image-generation
+- Todos os demais componentes (Runtime, Lab, Playground, IaC) estruturalmente completos
+
+**Critérios de aprovação:**
+- `image-identity` funciona de forma consistente
+- `background-remove` funciona corretamente (BRIA RMBG-1.4 instalado)
+- `image-upscale` funciona corretamente (RealESRGAN x4plus instalado)
+- AI Playground executa qualquer capability sem erros
+- AI Runtime estável durante múltiplas execuções
+- Infraestrutura sem falhas conhecidas
+
+---
+
 ## v2.0.0 — Epic 3: AI Lab
 - **Arquitetura congelada** — nenhuma alteração estrutural sem ADR aprovada
 - `runtime/lab/database.py` — SQLite (stdlib): tabelas `executions` e `cache_entries`; índices por capability e data

@@ -28,16 +28,31 @@ Construir o RATEC AI ENGINE — plataforma oficial de IA de todos os produtos RA
 - ~~Catálogo de modelos~~ — 6 manifests YAML (BRIA RMBG, RealESRGAN, FLUX, ControlNet, IPAdapter, Whisper)
 - ~~AI Playground v2~~ — 5 abas: Execute, History, Compare, Benchmark, Catalog
 
-## Próximos passos
+## Estado atual: Release 1.0.0-alpha — Fase de Validação
 
-**Foco: colocar capabilities em produção, uma por vez.**
+> **Congelamento ativo.** Nenhuma nova funcionalidade, abstração ou módulo.
 
-1. **Instalar BRIA RMBG-1.4** no Network Volume → testar `background-remove` no Playground → benchmarkar → aprovar
-2. **Instalar RealESRGAN x4plus** → validar `image-upscale` → aprovar
-3. **Implementar `face-segmentation`** com o nó ComfyUI correto → validar
-4. **Instalar FLUX.1-dev + IPAdapter** → implementar `haircut` → benchmarkar → aprovar
+**Foco exclusivo:** validar o funcionamento de ponta a ponta.
 
-Nenhuma capability vai para o aplicativo sem aprovação no AI Lab.
+### Capabilities prontas para validação (têm `comfyui.json`)
+
+| Capability | Workflow | Modelo necessário |
+|-----------|---------|------------------|
+| image-identity | `image/identity` | nenhum (passthrough) |
+| background-remove | `image/background-remove` | BRIA RMBG-1.4 |
+| image-upscale | `image/image-upscale` | RealESRGAN x4plus |
+
+### Ordem de validação
+
+1. **Etapa 1** — Infraestrutura: Runtime, ComfyUI, Network Volume, GPU, upload/download
+2. **Etapa 2** — Modelos: instalar BRIA RMBG-1.4 e RealESRGAN x4plus no Network Volume
+3. **Etapa 3** — Capabilities: executar exaustivamente image-identity, background-remove, image-upscale
+4. **Etapa 4** — AI Playground: todas as 5 abas funcionando sem erros
+5. **Etapa 5** — Correções: corrigir qualquer falha encontrada, sem avançar antes disso
+
+**Critério de aprovação:** ver `docs/ratec-ai-engine-docs/ROADMAP.md`
+
+**Após aprovação:** integração com GoodLook via API pública. Sem exceções.
 
 ## Regras permanentes
 
