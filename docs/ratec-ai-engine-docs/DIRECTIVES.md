@@ -155,6 +155,20 @@ Toda decisão futura deve preservar essa missão.
 
 ---
 
+## 11. Evolução Orientada por Valor
+
+Antes de iniciar qualquer nova Sprint, Epic ou Release, responder obrigatoriamente:
+
+- Qual problema de negócio esta implementação resolve?
+- Qual produto da RATEC será beneficiado?
+- Essa funcionalidade poderá ser reutilizada por outros produtos?
+- Existe alguma Capability semelhante que possa ser evoluída em vez de criar uma nova?
+- Como será medido o sucesso dessa Capability (qualidade, tempo, custo, taxa de sucesso etc.)?
+
+Se essas perguntas não tiverem respostas claras, a implementação deve ser reavaliada antes de começar.
+
+---
+
 ## Referência de implementação
 
 | Ação | Como fazer |

@@ -36,6 +36,17 @@ Este arquivo é carregado automaticamente em toda sessão. Seguir todas as regra
 - Modelos nunca na imagem Docker — sempre via Network Volume em `/runpod-volume/`
 - Node "1" = LoadImage (convenção de todos os workflows ComfyUI)
 
+## Antes de qualquer Sprint, Epic ou Release
+
+Responder obrigatoriamente às 5 perguntas de valor:
+1. Qual problema de negócio resolve?
+2. Qual produto RATEC será beneficiado?
+3. Pode ser reutilizada por outros produtos?
+4. Existe Capability semelhante que pode ser evoluída?
+5. Como medir o sucesso? (qualidade, tempo, custo, taxa de sucesso)
+
+Se sem resposta clara → reavaliar antes de começar.
+
 ## AI Lab
 
 - Todo resultado de execução deve ser registrado via `runtime/lab/` (quando no Playground)
