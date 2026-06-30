@@ -52,6 +52,14 @@ Se sem resposta clara → reavaliar antes de começar.
 - Todo resultado de execução deve ser registrado via `runtime/lab/` (quando no Playground)
 - Cache experimental é opt-in — nunca automático em produção
 
+## Política de modelos por Capability
+
+Nenhuma Capability depende de um único modelo. Regras:
+- Todo catálogo de modelo tem: `preferred`, `fallback_priority`, `requires_hf_token`, `license_type`
+- O instalador (`scripts/install_models.py`) tenta modelos em prioridade; se um falha, tenta o próximo
+- O Runtime lê `active_models.json` do Network Volume e seleciona o `comfyui.{model_id}.json` correto
+- Novo modelo = manifest em `runtime/models/catalog/` + `comfyui.{model_id}.json` no workflow
+
 ## Dependências tecnológicas
 
 Antes de adicionar qualquer nova dependência, responder:

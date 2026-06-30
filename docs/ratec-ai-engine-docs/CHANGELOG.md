@@ -1,5 +1,52 @@
 # CHANGELOG
 
+## Unreleased — Release 1.0.2-alpha: Política Oficial de Gerenciamento de Modelos
+
+> **Objetivo:** Tornar a plataforma resiliente — nenhuma Capability depende de um modelo específico.
+
+**Política de modelos:**
+- Cada Capability possui lista ordenada de modelos compatíveis com `fallback_priority`
+- O instalador tenta o modelo preferencial; se falhar (auth, erro de rede), instala a próxima alternativa
+- O Runtime lê `active_models.json` do Network Volume no boot e seleciona o workflow correto
+- Modelos com `requires_hf_token: true` são opcionais — não bloqueiam a plataforma
+
+**Novos modelos no catálogo:**
+- `birefnet` — fallback open source (MIT) para `background-remove`; prioridade 2; sem autenticação; instalado via custom node `ComfyUI_birefnet_ll`
+
+**Campos adicionados aos manifests:**
+- `preferred`, `fallback_priority`, `requires_hf_token`, `requires_license_acceptance`, `license_type`, `download_strategy`
+- `workflow_variants` — lista de arquivos `comfyui.{model_id}.json` disponíveis
+
+**Novo arquivo de workflow:**
+- `workflows/image/background-remove/comfyui.birefnet.json` — workflow BiRefNet para background-remove
+
+**Runtime:**
+- `RuntimeConfig.active_models_path` — path para `active_models.json` no volume
+- `RuntimeConfig.load_active_models()` — lê o arquivo, retorna `{}` se não encontrado
+- `Runtime._active_models` — mapa `workflow_id → model_id` carregado no boot
+- `Runtime._execute_comfyui()` — usa `load_comfyui(workflow_id, model_id=active_model)`
+- `Runtime._health()` — expõe `active_models` na resposta de health check
+
+**WorkflowManager:**
+- `load_comfyui(workflow_id, model_id=None)` — carrega `comfyui.{model_id}.json` se existir, senão `comfyui.json`
+- `list_model_variants(workflow_id)` — lista model IDs com workflow dedicado
+
+**Model Installation Manager v2.0 (`scripts/install_models.py`):**
+- `CAPABILITY_PRIORITIES` — modelos por capability em ordem de preferência
+- Tenta instalar modelos em prioridade; pula se requer auth sem token; tenta próximo
+- Escreve `active_models.json` no volume com o modelo instalado por capability
+- Relatório mostra todos os modelos tentados, motivo do skip, qual ficou ativo
+
+**AI Playground:**
+- `/api/catalog/capabilities` — endpoint com política de modelos por capability
+- `/api/capabilities` — agora inclui `active_models`
+- Aba Catalog: modelos com badges `preferencial`/`fallback #N`/`HF_TOKEN`
+- Aba Capabilities: coluna "Modelo ativo" + lista de alternativas com prioridade e auth
+
+**Diretriz #13:** Nenhuma Capability depende de um único modelo — toda nova Capability deve ter ao menos uma alternativa open source sem autenticação
+
+---
+
 ## Unreleased — Release 1.0.1-alpha: Consolidação da Infraestrutura
 
 > **Objetivo:** Definir oficialmente a infraestrutura tecnológica da plataforma e preparar o ambiente para os testes funcionais no AI Playground.

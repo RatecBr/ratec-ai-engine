@@ -6,6 +6,13 @@ license: commercial
 category: segmentation
 status: active
 
+preferred: true
+fallback_priority: 1
+requires_hf_token: true
+requires_license_acceptance: true
+license_type: commercial
+download_strategy: hf_hub
+
 description: >
   Modelo de remoção de fundo por segmentação semântica.
   Alta qualidade em cabelos, transparências e bordas complexas.

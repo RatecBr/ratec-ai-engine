@@ -34,7 +34,7 @@ sys.path.insert(0, str(_ROOT))
 
 from runtime import Runtime, _CAPABILITY_ROUTES
 from runtime.lab import Lab
-from playground.catalog import list_models
+from playground.catalog import list_capability_models, list_models
 
 app = FastAPI(title="RATEC AI Playground", version="2.0.0")
 
@@ -643,13 +643,18 @@ async function loadCatalog(which) {
       const status = m.status === 'active' ? '<span class="badge badge-green">active</span>' :
                      m.status === 'planned' ? '<span class="badge badge-yellow">planned</span>' :
                      `<span class="badge badge-gray">${m.status||'?'}</span>`;
+      const authBadge = m.requires_hf_token ? '<span class="badge badge-red">HF_TOKEN</span>' : '';
+      const licenseBadge = m.license_type ? `<span class="badge badge-gray">${m.license_type}</span>` : (m.license ? `<span class="badge badge-gray">${m.license}</span>` : '');
+      const preferredBadge = m.preferred ? '<span class="badge badge-green">preferencial</span>' : (m.fallback_priority ? `<span class="badge badge-yellow">fallback #${m.fallback_priority}</span>` : '');
       return `<div class="model-card">
         <h3>${m.name||m.id} <span style="font-size:11px;color:#555">v${m.version||'?'}</span></h3>
         <p>${m.description||''}</p>
         <div class="model-meta">
           ${status}
+          ${preferredBadge}
+          ${authBadge}
           <span class="badge badge-gray">${m.vendor||'?'}</span>
-          <span class="badge badge-gray">${m.license||'?'}</span>
+          ${licenseBadge}
           <span class="badge badge-gray">${m.category||'?'}</span>
           ${m.requirements?.min_vram ? `<span class="badge badge-gray">min ${m.requirements.min_vram}</span>` : ''}
           ${m.metrics?.model_size_mb ? `<span class="badge badge-gray">${m.metrics.model_size_mb}MB</span>` : ''}
@@ -660,17 +665,36 @@ async function loadCatalog(which) {
     }).join('');
   }
   if (which === 'capabilities') {
-    const data = await fetch('/api/capabilities').then(x=>x.json()).catch(()=>({}));
-    const caps = data.capabilities || [];
-    const wfs  = data.workflows_available || [];
+    const [capData, modelData] = await Promise.all([
+      fetch('/api/capabilities').then(x=>x.json()).catch(()=>({})),
+      fetch('/api/catalog/capabilities').then(x=>x.json()).catch(()=>[]),
+    ]);
+    const modelMap = {};
+    modelData.forEach(c => { modelMap[c.capability] = c; });
+    const caps = capData.capabilities || [];
+    const wfs  = capData.workflows_available || [];
     const cat = document.getElementById('cat-capabilities');
-    const rows = caps.map(c => {
-      const route = data.routes?.[c] || c;
+    const rows = caps.filter(c => !['echo','health','image-echo'].includes(c)).map(c => {
+      const route = capData.routes?.[c] || c;
       const hasWf  = wfs.some(w => w.replace(/\\/g,'/') === route.replace(/\\/g,'/'));
-      const status = hasWf ? '<span class="badge badge-green">active</span>' : '<span class="badge badge-yellow">planned</span>';
-      return `<tr><td><strong>${c}</strong></td><td style="font-size:12px;color:#555">${route}</td><td>${status}</td></tr>`;
+      const wfStatus = hasWf ? '<span class="badge badge-green">OK</span>' : '<span class="badge badge-yellow">planejado</span>';
+      const capInfo = modelMap[c];
+      const activeModel = capInfo?.active_model || '—';
+      const modelsHtml = (capInfo?.models || []).map(m => {
+        const activeBadge = m.is_active ? '<span class="badge badge-green">ativo</span>' : '';
+        const authBadge = m.requires_hf_token ? '<span class="badge badge-red" title="Necessita HF_TOKEN">auth</span>' : '';
+        const pref = m.preferred ? '⭐' : `#${m.fallback_priority||'?'}`;
+        return `<span style="font-size:11px;margin-right:6px">${pref} ${m.name} ${activeBadge}${authBadge}</span>`;
+      }).join('');
+      return `<tr>
+        <td><strong>${c}</strong></td>
+        <td style="font-size:12px;color:#555">${route}</td>
+        <td>${wfStatus}</td>
+        <td style="font-size:12px">${activeModel}</td>
+        <td>${modelsHtml || '<span style="color:#555;font-size:11px">—</span>'}</td>
+      </tr>`;
     }).join('');
-    cat.innerHTML = `<table><thead><tr><th>Capability</th><th>Workflow</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+    cat.innerHTML = `<table><thead><tr><th>Capability</th><th>Workflow</th><th>Workflow</th><th>Modelo ativo</th><th>Modelos disponíveis</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
   if (which === 'cache') {
     const entries = await fetch('/api/cache').then(x=>x.json()).catch(()=>[]);
@@ -720,6 +744,7 @@ async def api_capabilities():
         "capabilities": all_caps,
         "workflows_available": [str(p).replace("\\", "/") for p in available],
         "routes": {k: v.replace("\\", "/") for k, v in _CAPABILITY_ROUTES.items()},
+        "active_models": rt._active_models,
     }
 
 
@@ -828,6 +853,12 @@ def api_benchmark():
 @app.get("/api/catalog/models")
 def api_catalog_models():
     return list_models()
+
+
+@app.get("/api/catalog/capabilities")
+def api_catalog_capabilities():
+    volume_path = str(_runtime._config.volume_path) if _runtime else None
+    return list_capability_models(volume_path)
 
 
 # ── API: Cache ────────────────────────────────────────────────────────────────

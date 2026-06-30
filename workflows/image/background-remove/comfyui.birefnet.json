@@ -1,0 +1,33 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "_meta": {"title": "Load Image"},
+    "inputs": {
+      "image": "placeholder.png",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "BiRefNetLoader",
+    "_meta": {"title": "Load BiRefNet Model"},
+    "inputs": {
+      "version": "General"
+    }
+  },
+  "3": {
+    "class_type": "BiRefNet",
+    "_meta": {"title": "Remove Background (BiRefNet)"},
+    "inputs": {
+      "images": ["1", 0],
+      "birefnet": ["2", 0]
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "_meta": {"title": "Save Result"},
+    "inputs": {
+      "images": ["3", 0],
+      "filename_prefix": "ratec_bg_removed"
+    }
+  }
+}

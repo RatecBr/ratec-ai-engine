@@ -53,6 +53,56 @@
 
 ---
 
+## Release 1.0.2-alpha — Política de Gerenciamento de Modelos
+
+> **Status:** Em andamento
+
+### Modelo de resiliência
+
+```
+Capability: background-remove
+  ├── Prioridade 1: BRIA RMBG-1.4 [requires_hf_token: true]
+  │     ↓ se HF_TOKEN não disponível ou download falhar
+  └── Prioridade 2: BiRefNet [requires_hf_token: false, MIT]
+        ↓ instalado via custom_node_auto (ComfyUI_birefnet_ll)
+
+Capability: image-upscale
+  └── Prioridade 1: RealESRGAN x4plus [requires_hf_token: false, BSD-3]
+```
+
+### Fluxo de resolução de modelo
+
+```
+scripts/install_models.py
+  → tenta modelos em prioridade por capability
+  → instala primeiro disponível
+  → escreve /runpod-volume/active_models.json
+
+Runtime.initialize()
+  → lê active_models.json
+  → armazena em _active_models
+
+Runtime._execute_comfyui(workflow_id)
+  → active_model = _active_models.get(workflow_id)
+  → WorkflowManager.load_comfyui(workflow_id, model_id=active_model)
+  → carrega comfyui.{model_id}.json se existir, senão comfyui.json
+```
+
+### Critérios de conclusão
+
+- [x] `birefnet` adicionado ao catálogo como fallback para `background-remove`
+- [x] `comfyui.birefnet.json` criado para o workflow de background remove
+- [x] Manifests atualizados com campos de política (`preferred`, `fallback_priority`, etc.)
+- [x] `RuntimeConfig.load_active_models()` implementado
+- [x] `WorkflowManager.load_comfyui()` suporta `model_id`
+- [x] `Runtime` carrega e usa `active_models` no boot
+- [x] `install_models.py` v2.0 com suporte a prioridades por capability
+- [x] AI Playground exibe política de modelos na aba Catalog/Capabilities
+- [ ] Executar `install_models.py` no RunPod e validar que `active_models.json` é gerado
+- [ ] Validar que o Runtime usa o modelo correto via `active_models.json`
+
+---
+
 ## Release 1.0.1-alpha — Consolidação da Infraestrutura
 
 > **Status:** Em andamento  

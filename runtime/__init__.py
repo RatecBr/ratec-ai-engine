@@ -63,20 +63,25 @@ class Runtime:
         config: RuntimeConfig,
         executor: ComfyUIExecutor,
         workflow_manager: WorkflowManager,
+        active_models: dict[str, str] | None = None,
     ) -> None:
         self._config = config
         self._executor = executor
         self._wm = workflow_manager
+        # Mapa workflow_id → model_id instalado (lido do active_models.json no volume)
+        self._active_models: dict[str, str] = active_models or {}
 
     # ── Factory ───────────────────────────────────────────────────────────────
 
     @classmethod
     def initialize(cls) -> "Runtime":
         config = RuntimeConfig.from_env()
+        active_models = config.load_active_models()
         instance = cls(
             config=config,
             executor=ComfyUIExecutor(config),
             workflow_manager=WorkflowManager(config.workflows_dir),
+            active_models=active_models,
         )
         instance._print_startup()
         return instance
@@ -158,7 +163,8 @@ class Runtime:
         image_b64: str | None = job_input.get("image")
         node_overrides: dict[str, dict] = dict(job_input.get("node_overrides", {}))
 
-        workflow = self._wm.load_comfyui(workflow_id)
+        active_model = self._active_models.get(workflow_id)
+        workflow = self._wm.load_comfyui(workflow_id, model_id=active_model)
 
         async with httpx.AsyncClient() as client:
             upload_ms = 0
@@ -219,6 +225,7 @@ class Runtime:
             "worker_ready": True,
             "workflows_available": self._wm.list_available(),
             "capabilities": sorted(_CAPABILITY_ROUTES.keys()),
+            "active_models": self._active_models,
         }
 
     async def _image_echo(self, job_input: dict) -> dict:
@@ -251,3 +258,8 @@ class Runtime:
         print(f"[ratec] Workflows: {len(available)} disponíveis → {available}", flush=True)
         print(f"[ratec] Capabilities: {sorted(_CAPABILITY_ROUTES.keys())}", flush=True)
         print(f"[ratec] Volume: {self._config.volume_path} (disponível: {self._config.volume_available})", flush=True)
+        if self._active_models:
+            for wf_id, model_id in self._active_models.items():
+                print(f"[ratec] Modelo ativo: {wf_id} → {model_id}", flush=True)
+        else:
+            print("[ratec] active_models.json não encontrado — usando comfyui.json padrão", flush=True)

@@ -162,6 +162,28 @@
 
 ---
 
+## Política de múltiplos modelos por Capability (Release 1.0.2-alpha)
+
+**Decisão:** Nenhuma Capability depende de um modelo específico. Toda Capability possui uma lista ordenada de modelos compatíveis. O Runtime seleciona automaticamente o modelo instalado no ambiente via `active_models.json`.
+
+**Motivo:** Modelos podem exigir autenticação, licenças comerciais ou estar temporariamente indisponíveis. A plataforma deve continuar funcionando independente de credenciais específicas.
+
+**Como funciona:**
+1. `scripts/install_models.py` tenta instalar modelos em ordem de prioridade por capability
+2. Se um modelo falha (sem HF_TOKEN, erro de rede), o instalador tenta o próximo
+3. O resultado é gravado em `/runpod-volume/active_models.json`
+4. O Runtime lê este arquivo no boot e carrega o `comfyui.{model_id}.json` correto
+5. Se não há `active_models.json`, o Runtime usa `comfyui.json` (modelo padrão)
+
+**Campos obrigatórios no manifest de todo modelo:**
+`preferred`, `fallback_priority`, `requires_hf_token`, `license_type`, `download_strategy`
+
+**Convenção de arquivos de workflow por modelo:**
+`workflows/{categoria}/{capability}/comfyui.json` — padrão (modelo preferencial)
+`workflows/{categoria}/{capability}/comfyui.{model_id}.json` — variante por modelo
+
+---
+
 ## Firebase como backend principal (Release 1.0.1-alpha)
 
 **Decisão:** Firebase permanece como backend principal da plataforma. Nenhuma migração para outro serviço nesta fase.

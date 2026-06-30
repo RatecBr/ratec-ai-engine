@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(git init *)",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "Bash(python -m py_compile src/infrastructure/providers/comfyui/exceptions.py src/infrastructure/providers/comfyui/models.py src/infrastructure/providers/comfyui/client.py src/infrastructure/providers/comfyui/workflow_loader.py src/infrastructure/providers/comfyui/result_parser.py src/infrastructure/providers/comfyui/job_executor.py src/infrastructure/providers/comfyui/provider.py src/infrastructure/providers/comfyui/__init__.py src/infrastructure/execution/comfyui_backend.py src/infrastructure/execution/execution_manager.py src/config/dependencies.py)",
+      "Bash(python -m pytest tests/ -q)",
+      "Bash(xargs ls *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git merge develop --no-ff -m ' *)"
     ]
   }
 }

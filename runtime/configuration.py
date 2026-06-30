@@ -79,3 +79,22 @@ class RuntimeConfig:
     @property
     def volume_available(self) -> bool:
         return self.volume_path.exists()
+
+    @property
+    def active_models_path(self) -> Path:
+        """Caminho para o arquivo active_models.json no Network Volume."""
+        return self.volume_path / "active_models.json"
+
+    def load_active_models(self) -> dict[str, str]:
+        """
+        Lê o active_models.json do Network Volume.
+        Formato: {"image/background-remove": "birefnet", ...}
+        Retorna {} se o arquivo não existir ou estiver corrompido.
+        """
+        import json as _json
+        try:
+            with open(self.active_models_path, encoding="utf-8") as f:
+                data = _json.load(f)
+            return {k: v for k, v in data.items() if not k.startswith("_")}
+        except (FileNotFoundError, _json.JSONDecodeError, OSError):
+            return {}
