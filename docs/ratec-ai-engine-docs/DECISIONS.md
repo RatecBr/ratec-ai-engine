@@ -162,6 +162,43 @@
 
 ---
 
+## [PLANEJADO] ModelResolver — seleção dinâmica de modelo por Capability
+
+**Status:** Planejado. Não implementar antes da conclusão da Release 1.0.0-alpha.
+
+**Contexto:** A implementação atual da política de modelos (Release 1.0.2-alpha) usa `active_models.json` — um arquivo estático escrito pelo instalador e lido pelo Runtime no boot. Os critérios de seleção (disponibilidade, licença, VRAM) são aplicados **uma vez**, em tempo de instalação.
+
+**Decisão planejada:** Criar `runtime/model_resolver.py` com uma classe `ModelResolver` responsável por centralizar toda a lógica de seleção de modelo por Capability.
+
+**Interface esperada:**
+```python
+class ModelResolver:
+    def resolve(
+        self,
+        capability: str,
+        vram_available_mb: int | None = None,
+        prefer_open_source: bool = False,
+    ) -> str | None:
+        """
+        Retorna o model_id mais adequado para a capability,
+        considerando: modelos instalados, VRAM disponível,
+        prioridade no catálogo, licença.
+        Retorna None se nenhum modelo adequado estiver disponível.
+        """
+```
+
+**Por que fazer:** A lógica de seleção está hoje dividida entre `install_models.py` (critérios de instalação) e `Runtime._active_models` (resultado estático). Centralizar no `ModelResolver` permite:
+- Seleção dinâmica com VRAM real disponível no momento da execução
+- Fallback em tempo real se um modelo falhar durante a execução
+- Testabilidade isolada da lógica de seleção
+- Evolução independente dos critérios de seleção
+
+**Quando implementar:** Pós-Release 1.0.0-alpha, após a validação completa das três capabilities atuais.
+
+**Impacto:** `Runtime._execute_comfyui()` substitui `self._active_models.get(workflow_id)` por `self._resolver.resolve(capability)`. O `active_models.json` passa a ser um cache do `ModelResolver`, não a fonte primária de verdade.
+
+---
+
 ## Política de múltiplos modelos por Capability (Release 1.0.2-alpha)
 
 **Decisão:** Nenhuma Capability depende de um modelo específico. Toda Capability possui uma lista ordenada de modelos compatíveis. O Runtime seleciona automaticamente o modelo instalado no ambiente via `active_models.json`.
