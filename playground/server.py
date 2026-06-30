@@ -343,8 +343,8 @@ tr.selected td{background:#0d1a0d}
     </div>
     <div class="status-card loading" id="sc-volume">
       <div class="sc-label">Network Volume</div>
-      <div class="sc-value" id="sc-vol-val">—</div>
-      <div class="sc-sub" id="sc-vol-sub">Verificando...</div>
+      <div class="sc-value" id="sc-volume-val">—</div>
+      <div class="sc-sub" id="sc-volume-sub">Verificando...</div>
       <span class="sc-icon">💾</span>
     </div>
   </div>
@@ -1247,6 +1247,12 @@ async def api_status():
 async def api_system_run(workflow_id: str):
     if workflow_id not in ("echo", "health", "image-echo"):
         raise HTTPException(400, f"Workflow de sistema inválido: '{workflow_id}'")
+    if _remote_mode:
+        try:
+            return await _remote_runsync(workflow_id, {})
+        except Exception as e:
+            return JSONResponse(status_code=400, content={"error": f"Erro na Nuvem: {str(e)}"})
+
     rt = _rt()
     return await rt.handle({"input": {"workflow_id": workflow_id, "input": {}}})
 
@@ -1339,7 +1345,13 @@ async def api_run(
             return JSONResponse(cached_result)
 
     if _remote_mode:
-        result = await _remote_runsync(capability, {"image": image_b64, "node_overrides": overrides})
+        try:
+            result = await _remote_runsync(capability, {"image": image_b64, "node_overrides": overrides})
+        except Exception as e:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Erro na Nuvem (Servidor pode estar dormindo): {str(e)}"}
+            )
     else:
         rt = _rt()
         job = {"input": {"workflow_id": capability, "input": {"image": image_b64, "node_overrides": overrides}}}
