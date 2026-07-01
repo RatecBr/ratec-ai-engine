@@ -1,93 +1,88 @@
-# API Reference — RATEC AI ENGINE v1
+# API Reference — RATEC AI ENGINE
 
-Base URL: `http://host:8000/v1`  
-Documentação interativa: `http://host:8000/docs`
+> **Arquitetura atual:** RunPod Serverless. Todas as requisições chegam via proxy Vercel (`engine.ra.tec.br`) e são encapsuladas em chamadas `runsync` para o handler. Não há servidor HTTP local — o roteamento é feito dentro do `handler.py`.
 
 ---
 
-## Health
+## Transporte
+
+```
+Console Web → Vercel BFF (/api/[...path]) → RunPod runsync → handler.py → resposta
+```
+
+O campo `http_path` no payload do RunPod determina qual rota é servida.
+
+---
+
+## Rotas Públicas `/v1/*`
+
+Consumidas pelo Console Web e (futuramente) pelos aplicativos RATEC.  
+Retornam dados diretos — **sem** o envelope `{success, data}`.
 
 ### `GET /v1/health`
-Status da plataforma e de cada provider e backend.
+```json
+{ "status": "ok", "version": "1.1.0-alpha", "uptime_seconds": 3600, "availability": "online" }
+```
 
-**Response:**
+### `GET /v1/capabilities`
+```json
+{ "status": "ok", "capabilities": ["background-remove", "beard", "face-segmentation", "haircut", "identity", "image-identity", "image-upscale", "makeup", "virtual-try-on"], "total": 9 }
+```
+
+### `GET /v1/workflows`
 ```json
 {
   "status": "ok",
-  "version": "0.1.0",
-  "providers": { "local": "ok", "runpod": "ok" },
-  "backends":  { "local": "ok", "runpod": "ok" }
+  "workflows": [
+    { "id": "image/background-remove", "name": "Background Remove", "version": "1.0", "description": "Workflow de IA: image/background-remove" },
+    { "id": "image/identity",          "name": "Identity",          "version": "1.0", "description": "Workflow de IA: image/identity" },
+    { "id": "image/image-upscale",     "name": "Image Upscale",     "version": "1.0", "description": "Workflow de IA: image/image-upscale" }
+  ],
+  "total": 3
 }
 ```
-
----
-
-## Jobs
-
-### `POST /v1/jobs`
-Submete um job para execução assíncrona.
-
-**Body:**
-```json
-{ "workflow_id": "echo", "input": { "key": "value" } }
-```
-
-**Response 202:**
-```json
-{
-  "id": "uuid",
-  "workflow_id": "echo",
-  "status": "completed",
-  "output": { ... },
-  "created_at": "2026-01-01T00:00:00Z"
-}
-```
-
-### `GET /v1/jobs`
-Lista jobs com filtros opcionais: `?status=pending&workflow_id=echo&limit=50&offset=0`
-
-### `GET /v1/jobs/{job_id}`
-Busca um job pelo ID.
-
-### `POST /v1/jobs/{job_id}/cancel`
-Cancela um job pendente ou em execução.
-
----
-
-## Workflows
-
-### `GET /v1/workflows`
-Lista todos os workflows registrados.
-
-### `GET /v1/workflows/{workflow_id}`
-Detalha um workflow específico incluindo seus steps e o pipeline_id referenciado.
-
----
-
-## Pipelines
-
-### `GET /v1/pipelines`
-Lista todos os pipelines registrados.
-
-### `GET /v1/pipelines/{pipeline_id}`
-Detalha um pipeline incluindo capability, action, model_id e execution_strategy de cada step.
-
----
-
-## Models
 
 ### `GET /v1/models`
-Lista todos os modelos registrados. Filtro opcional: `?capability=image-generation`
+```json
+{ "status": "ok", "models": [{ "id": "sdxl_base.safetensors", "name": "sdxl_base.safetensors", "workflow": "image/identity", "status": "available" }], "total": 1 }
+```
 
-### `GET /v1/models/{model_id}`
-Detalha um modelo: capabilities, requirements, status.
+### `GET /v1/jobs` (GET)
+```json
+{ "status": "ok", "jobs": [], "total": 0 }
+```
+> Sem tracking de jobs no modo serverless — cada `runsync` é autocontido.
+
+### `POST /v1/jobs`
+```json
+// Request body
+{ "workflow_id": "background-remove", "input": { "image": "<base64>" } }
+
+// Response (síncrono — resultado imediato)
+{ "id": "a1b2c3d4", "status": "completed", "workflow_id": "background-remove", "progress": 100, "output": { ... } }
+```
+
+### `GET /v1/jobs/{id}`
+```json
+{ "id": "{id}", "status": "not_found", "error": "Rastreamento de jobs não disponível no modo serverless." }
+```
 
 ---
 
-## Providers
+## Rotas Administrativas `/admin/*`
 
-### `GET /v1/providers`
-Lista providers registrados no catálogo de capabilities.
+Exclusivas do Console Web (`engine.ra.tec.br`).  
+Retornam o envelope `{ "success": true, "data": { ... } }`.
 
-### `GET /v1/providers/{provider_id}`
-Detalha um provider.
+| Rota | Descrição |
+|---|---|
+| `GET /admin/version` | Metadados de build: versão, commit, branch, docker tag, GPU, boot time |
+| `GET /admin/health` | Saúde da plataforma e uptime |
+| `GET /admin/gpu` | Telemetria da GPU: nome, VRAM total/usada/livre, modelos ativos |
+| `GET /admin/system` | Estado consolidado: GPU + runtime + storage + ComfyUI status |
+| `GET /admin/runtime` | Configuração do runtime: modo serverless, volume path, capabilities carregadas |
+| `GET /admin/storage` | Volumes de disco, espaço livre, breakdown models vs cache |
+| `GET /admin/logs` | Logs estruturados do stdout do worker |
+| `GET /admin/metrics` | Métricas de throughput e execução |
+| `GET /admin/models` | Modelos instalados no volume |
+| `GET /admin/workflows` | Workflows registrados com metadados de desenvolvedor |

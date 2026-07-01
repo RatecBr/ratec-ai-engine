@@ -1,7 +1,7 @@
 # RATEC AI ENGINE — Contrato Público da API
 
-**Versão do documento:** 1.0.0  
-**Data:** 2026-06-29  
+**Versão do documento:** 1.1.0  
+**Data:** 2026-07-01  
 **Status:** Estável
 
 ---
@@ -279,26 +279,20 @@ GET /v1/health
 ```json
 {
   "status": "ok",
-  "version": "1.0.0",
-  "timestamp": "2026-06-29T18:00:00Z",
-  "providers": {
-    "runpod": "ok",
-    "local": "ok"
-  },
-  "backends": {
-    "runpod": "ok",
-    "local": "ok"
-  }
+  "version": "1.1.0-alpha",
+  "uptime_seconds": 3600,
+  "availability": "online"
 }
 ```
 
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `status` | string | `"ok"` ou `"degraded"` |
-| `version` | string | Versão do serviço |
-| `timestamp` | string (ISO 8601) | Momento da verificação |
-| `providers` | object | Status por provider (`"ok"`, `"degraded"`, `"unavailable"`) |
-| `backends` | object | Status por backend de execução |
+| `version` | string | Versão do engine |
+| `uptime_seconds` | integer | Segundos desde o boot do worker |
+| `availability` | string | `"online"` ou `"offline"` |
+
+> **Nota (modo Serverless):** No RunPod Serverless cada invocação pode atingir um worker diferente. `uptime_seconds` reflete o tempo de vida da instância atual, não do endpoint.
 
 ---
 
@@ -415,60 +409,29 @@ Authorization: Bearer {api_key}
 **Response 200:**
 ```json
 {
+  "status": "ok",
   "capabilities": [
-    {
-      "id": "image-generation",
-      "name": "Image Generation",
-      "description": "Geração de imagens a partir de prompts ou imagens de referência",
-      "input_schema": {
-        "prompt": { "type": "string" },
-        "image": { "type": "string", "format": "base64" }
-      },
-      "output_schema": {
-        "image": { "type": "string", "format": "base64" }
-      }
-    },
-    {
-      "id": "text-generation",
-      "name": "Text Generation",
-      "description": "Geração e transformação de texto com LLMs",
-      "input_schema": {
-        "prompt": { "type": "string" }
-      },
-      "output_schema": {
-        "text": { "type": "string" }
-      }
-    },
-    {
-      "id": "audio-transcription",
-      "name": "Audio Transcription",
-      "description": "Transcrição de áudio para texto",
-      "input_schema": {
-        "audio": { "type": "string", "format": "base64" }
-      },
-      "output_schema": {
-        "text": { "type": "string" },
-        "segments": { "type": "array" }
-      }
-    },
-    {
-      "id": "echo",
-      "name": "Echo",
-      "description": "Retorna o input como output. Usado para testes.",
-      "input_schema": {},
-      "output_schema": {}
-    }
-  ]
+    "background-remove",
+    "beard",
+    "face-segmentation",
+    "haircut",
+    "identity",
+    "image-identity",
+    "image-upscale",
+    "makeup",
+    "virtual-try-on"
+  ],
+  "total": 9
 }
 ```
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `id` | string | Identificador único |
-| `name` | string | Nome legível |
-| `description` | string | Descrição da operação |
-| `input_schema` | object | Schema JSON do input |
-| `output_schema` | object | Schema JSON do output |
+| `status` | string | `"ok"` |
+| `capabilities` | array[string] | IDs das capabilities disponíveis, em ordem alfabética |
+| `total` | integer | Total de capabilities registradas |
+
+> **Nota:** As capabilities listadas correspondem às chaves do `_CAPABILITY_ROUTES` no `runtime/__init__.py`. Cada capability mapeia para um workflow ComfyUI específico no volume.
 
 ---
 
@@ -576,7 +539,9 @@ Authorization: Bearer {api_key}
 
 Cria e enfileira um novo job de processamento de IA.
 
-Operação **assíncrona**: o servidor aceita o job imediatamente (`202 Accepted`) e retorna o ID. O cliente deve usar `GET /v1/jobs/{id}` para acompanhar o progresso.
+Operação **síncrona no modo Serverless**: no RunPod Serverless a chamada `runsync` bloqueia até o job completar. O resultado é retornado diretamente com `status: "completed"`. Não é necessário polling — `output` já estará populado na resposta.
+
+> **Nota de compatibilidade:** A interface mantém os campos `id`, `status` e `progress` para compatibilidade com o Console Web, mas o fluxo assíncrono real (polling) não se aplica ao modo Serverless.
 
 **Request:**
 ```http
@@ -987,22 +952,22 @@ O cliente deve responder com `200 OK` em até 5 segundos. O RATEC AI ENGINE tent
 
 ## 13. Implementação — Status por Endpoint
 
-Referência rápida do estado atual da implementação:
+Referência rápida do estado atual da implementação no handler serverless (`handler.py`):
 
 | Endpoint | Implementado | Observações |
 |---|---|---|
-| GET /v1/health | ✅ | |
-| GET /v1/workflows | ✅ | |
-| GET /v1/workflows/{id} | ✅ | |
-| GET /v1/capabilities | 🔲 | CapabilityRegistry existe; rota a criar |
-| GET /v1/models | ✅ | |
-| GET /v1/models/{id} | ✅ | |
-| POST /v1/jobs | ✅ | Status `pending` a renomear para `queued` |
-| GET /v1/jobs | ✅ | Campo `progress` a adicionar |
-| GET /v1/jobs/{id} | ✅ | Campo `progress` a adicionar |
-| POST /v1/jobs/{id}/cancel | ✅ | |
-| GET /v1/providers | ✅ | |
-| GET /v1/providers/{id} | ✅ | |
+| GET /v1/health | ✅ | Retorna status, versão, uptime |
+| GET /v1/capabilities | ✅ | Lista de 9 capabilities do `_CAPABILITY_ROUTES` |
+| GET /v1/workflows | ✅ | Workflows disponíveis via `WorkflowManager` |
+| GET /v1/models | ✅ | Modelos ativos do `active_models.json` |
+| GET /v1/workflows/{id} | 🔲 | Rota única não implementada |
+| GET /v1/models/{id} | 🔲 | Rota única não implementada |
+| POST /v1/jobs | ✅ | Execução síncrona via `_runtime.handle()` |
+| GET /v1/jobs | ✅ | Retorna lista vazia (sem tracking serverless) |
+| GET /v1/jobs/{id} | ⚠️ | Retorna `not_found` — sem persistência entre invocações |
+| POST /v1/jobs/{id}/cancel | 🔲 | Não aplicável no modo serverless |
+| GET /v1/providers | 🔲 | Fase posterior |
+| GET /v1/providers/{id} | 🔲 | Fase posterior |
 | Autenticação Bearer | 🔲 | Fase posterior |
 | Rate limiting | 🔲 | Fase posterior |
 | Idempotency-Key | 🔲 | Fase posterior |
@@ -1014,4 +979,5 @@ Referência rápida do estado atual da implementação:
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.1.0 | 2026-07-01 | Rotas /v1/* implementadas no handler serverless; response de /v1/health e /v1/capabilities atualizados; nota sobre execução síncrona em serverless |
 | 1.0.0 | 2026-06-29 | Contrato público inicial |

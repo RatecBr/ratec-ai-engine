@@ -1,7 +1,7 @@
 # RATEC AI ENGINE — Contrato da API Administrativa
 
-**Versão do documento:** 1.0.0  
-**Data:** 2026-06-30  
+**Versão do documento:** 1.1.0  
+**Data:** 2026-07-01  
 **Status:** Uso Exclusivo Interno
 
 ---
@@ -12,6 +12,7 @@
 2. [Padrão de Resposta](#2-padrão-de-resposta)
 3. [Autenticação](#3-autenticação)
 4. [Endpoints Administrativos](#4-endpoints-administrativos)
+    - [GET /admin/version](#get-adminversion)
     - [GET /admin/health](#get-adminhealth)
     - [GET /admin/runtime](#get-adminruntime)
     - [GET /admin/system](#get-adminsystem)
@@ -69,6 +70,20 @@ Inicialmente, o sistema operará de forma flexível ou usando proteção em nív
 ---
 
 ## 4. Endpoints Administrativos
+
+### GET /admin/version
+Metadados de build injetados pelo CI/CD e informações do worker em execução.
+* `data.engine_version`: Versão semântica do engine (ex: `"2.0.0"`)
+* `data.git_short_commit`: Hash curto do commit (7 chars) que gerou a imagem
+* `data.git_branch`: Branch de origem do build
+* `data.build_date`: Timestamp ISO 8601 do momento do build no GitHub Actions
+* `data.docker_tag`: Tag completa da imagem Docker (`ghcr.io/ratecbr/ratec-ai-engine:serverless-<sha>`)
+* `data.github_run_id`: ID da execução do GitHub Actions
+* `data.gpu_model`: GPU detectada no worker (ex: `"NVIDIA A40"`)
+* `data.worker_started_at`: Timestamp ISO 8601 do boot desta instância do worker
+* `data.python_version`: Versão do Python em execução
+
+**Fonte dos dados:** arquivo `build_info.json` gerado no step `Generate build info` do `build-serverless.yml` e copiado para a imagem via `COPY build_info.json* .`
 
 ### GET /admin/health
 Estado geral da plataforma e disponibilidade de módulos.
