@@ -92,6 +92,73 @@ async def handler(job: dict) -> dict:
                 data["comfyui_manager"] = data["runtime"]["comfyui_manager"]
                 return {"success": True, "data": data}
 
+            # ── Rotas públicas /v1/* (Console Web) ──────────────────────────────
+
+            elif path == "/v1/health":
+                from src.application.admin import health_service
+                return health_service.get_platform_health()
+
+            elif path == "/v1/capabilities":
+                from runtime import _CAPABILITY_ROUTES
+                return {
+                    "status": "ok",
+                    "capabilities": sorted(_CAPABILITY_ROUTES.keys()),
+                    "total": len(_CAPABILITY_ROUTES),
+                }
+
+            elif path == "/v1/workflows":
+                available = _runtime._wm.list_available()
+                workflows = [
+                    {
+                        "id": wf_id,
+                        "name": wf_id.split("/")[-1].replace("-", " ").title(),
+                        "version": "1.0",
+                        "description": f"Workflow de IA: {wf_id}",
+                    }
+                    for wf_id in available
+                ]
+                return {"status": "ok", "workflows": workflows, "total": len(workflows)}
+
+            elif path == "/v1/models":
+                model_list = [
+                    {"id": model_id, "name": model_id, "workflow": wf_id, "status": "available"}
+                    for wf_id, model_id in _runtime._active_models.items()
+                ]
+                return {"status": "ok", "models": model_list, "total": len(model_list)}
+
+            elif path == "/v1/jobs":
+                method = job_input.get("http_method", "GET").upper()
+                if method == "POST":
+                    import json as _json
+                    import uuid as _uuid
+                    body = job_input.get("http_body", {})
+                    if isinstance(body, str):
+                        body = _json.loads(body)
+                    job_id = str(_uuid.uuid4())[:8]
+                    result = await _runtime.handle({
+                        "input": {
+                            "workflow_id": body.get("workflow_id"),
+                            "input": body.get("input", {}),
+                        }
+                    })
+                    return {
+                        "id": job_id,
+                        "status": result.get("status", "completed"),
+                        "workflow_id": body.get("workflow_id"),
+                        "progress": 100,
+                        "output": result.get("result", result),
+                    }
+                else:
+                    return {"status": "ok", "jobs": [], "total": 0}
+
+            elif path.startswith("/v1/jobs/"):
+                job_id = path.removeprefix("/v1/jobs/")
+                return {
+                    "id": job_id,
+                    "status": "not_found",
+                    "error": "Rastreamento de jobs não disponível no modo serverless.",
+                }
+
             else:
                 return {
                     "success": False,
