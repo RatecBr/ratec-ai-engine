@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## Unreleased — Hotfix + Console Web (2026-07-01)
+
+> **Objetivo:** Corrigir bugs críticos que impediam o worker de inicializar e conectar o Console Web ao Engine em produção.
+
+### Correções críticas
+
+**`handler.py` — docstring não fechada (bug de silêncio total)**
+- A docstring de módulo estava aberta na linha 1 sem fechamento — todo o arquivo (imports, `_runtime`, `handler`, `runpod.serverless.start`) era interpretado como string literal; o worker iniciava e encerrava silenciosamente com exit code 1
+- Corrigido: docstring fechada após a linha 3; todo o código passa a ser executado
+
+**`Dockerfile.serverless` — COPY statements ausentes**
+- Apenas `handler.py` e `build_info.json*` eram copiados para a imagem
+- `runtime/`, `src/` e `workflows/` estavam ausentes → `ModuleNotFoundError: No module named 'runtime'` ao iniciar
+- Corrigido: adicionados os três COPY statements faltantes
+
+**`runtime/__init__.py` — violação de isolamento standalone**
+- `_print_startup()` importava `from src.application.admin.version_provider import version_provider`, quebrando a regra de que `runtime/` é um módulo independente de `src/`
+- Removido o import e o banner duplicado `===`; o banner agora é responsabilidade exclusiva do `handler.py`
+
+### Novas funcionalidades
+
+**`handler.py` — rotas públicas `/v1/*` para o Console Web**
+- `GET /v1/health` — saúde do worker (status, versão, uptime)
+- `GET /v1/capabilities` — lista de capabilities do `_CAPABILITY_ROUTES` (9 itens em produção)
+- `GET /v1/workflows` — workflows disponíveis via `WorkflowManager.list_available()`
+- `GET /v1/models` — modelos ativos lidos do `active_models.json` do volume
+- `GET /v1/jobs` — retorna lista vazia (sem tracking de jobs no modelo serverless)
+- `POST /v1/jobs` — executa job de forma síncrona via `_runtime.handle()`, retorna resultado imediato
+- `GET /v1/jobs/{id}` — responde `not_found` (sem persistência entre invocações serverless)
+- Rotas `/v1/*` retornam dados diretos sem o envelope `{success, data}` (diferente das rotas `/admin/`)
+
+**`handler.py` — endpoint `/admin/version`** *(adicionado na sessão anterior)*
+- Retorna `build_info.json` gerado pelo CI/CD: versão, commit, branch, data de build, docker tag, GPU model, `worker_started_at`
+
+### Manutenção
+
+- `lab_data/` removido do histórico git (`git rm -r --cached`) e adicionado ao `.gitignore`
+- Scripts de diagnóstico na raiz (`/test_*.py`) adicionados ao `.gitignore`
+- `develop` sincronizado com `main` via merge
+
+---
+
 ## Unreleased — Release 1.0.2-alpha: Política Oficial de Gerenciamento de Modelos
 
 > **Objetivo:** Tornar a plataforma resiliente — nenhuma Capability depende de um modelo específico.
